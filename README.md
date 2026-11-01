@@ -9,7 +9,7 @@ A complete, production-ready 2.5D wealth-building board game for the browser. Bu
 <p align="center">
   <img src="screenshot-tile.png" width="32%" alt="Clickable tile detail card" />
   <img src="screenshot-settings.png" width="32%" alt="Table settings for speed, turn flow and text size" />
-  <img src="screenshot-dice.png" width="32%" alt="3D physics dice modal" />
+  <img src="screenshot-dice.png" width="32%" alt="Compact 3D physics dice tray over the board" />
 </p>
 
 <p align="center">
@@ -42,7 +42,7 @@ The board, economy, AI and persistence are fully offline-capable. The 3D dice us
 - **Review-friendly pacing** — movement speed from **0.5× to 3×**, plus **Manual / Auto turn flow**. Manual pauses after your turn with a **Continue** button so you can study the tile, rent and balance before advancing.
 - **Tile inspector** — click or tap **any board box** for a large detail card with price, rent/yield, owner, tier, mortgage status, live position info and dynamic effect notes.
 - **Readable interface** — **A− / A+ text scaling** (100%, 110%, 125%, 140%) for the lobby, sidebar, dialogs, logs and board labels, persisted between sessions.
-- **Real 3D physics dice** — two tumbling Cannon.js cubes inside a Three.js table, random forces and torque, pip textures, shadows, rail collisions, automatic rest detection and result reading from the upward face.
+- **Real 3D physics dice** — two tumbling Cannon.js cubes inside a Three.js table, random forces and torque, pip textures, shadows, rail collisions, automatic rest detection and result reading from the upward face. The roll shows in a **compact floating tray over the board centre**, with a light backdrop so the tiles stay visible; on phones the tray drops below the board.
 - **Complete economy** — salaries, stock dividends, rent, taxes, auto-mortgages, bankruptcy, eliminations and a live net-worth leaderboard.
 - **Shuffled card deck** — bull runs, crypto crashes, real-estate booms and tax loopholes.
 - **AI decision tree** — bots buy when reserves stay above $20,000 and pay the $10,000 audit-lockout exit fee when cash is above $30,000.
@@ -206,6 +206,7 @@ Append `?demo=1` to the URL to auto-start a four-player AI match. Add `&fast=1` 
 - Canvas 2D dice fallback verified with WebGL disabled.
 - Full **120-turn / 30-round** simulated match with random dice, cards, lockouts, purchases and rent — ended correctly on the 30-round net-worth tiebreak with no console errors.
 - Targeted assertions for auto-mortgage, bankruptcy asset release, GO dividends, tax loophole, $1M victory, AI buy threshold and save/load round-trip.
+- **Compact dice tray:** the board remains visible around the tray; on desktop the tray is centred over the board centre and on mobile it is anchored below the board.
 - **Pacing & inspection checks:** 0.5× step measured at ~421 ms vs ~124 ms at 2×; Manual mode enters review with the Continue button and REVIEW badge; Auto mode advances to the AI seat; a real canvas click opens the correct tile card; review state survives save/load.
 - **Text scaling checks:** 110% keeps the header on one row; 125% and 140% collapse header action labels to icons while keeping one row; log text scales from 11.5 px to 16.1 px at 140%.
 
@@ -215,8 +216,8 @@ Append `?demo=1` to the URL to auto-start a four-player AI match. Add `&fast=1` 
 
 This entire project — design, code, copy, tests and screenshots — was created end-to-end by **[OpenCode](https://opencode.ai)** using **DeepSeek V4.1 Flash** (`opencode-go/deepseek-v4.1-flash`).
 
-- **Wall-clock build time:** **98 min 18 sec** cumulative through the v1.1 review/readability update (first playable delivery at 48 min 25 sec). See [BUILD_STATE.md](BUILD_STATE.md).
-- **Token accounting:** **74,716,838** total at the feature snapshot — 568,437 input, 132,455 output, 223,128 reasoning, 73,790,976 cache read, 1,842 cache write. Cache reads dominate because the full context is re-read each turn. See [build-state.json](build-state.json).
+- **Wall-clock build time:** **98 min 18 sec** through the v1.1 review/readability update (first playable delivery at 48 min 25 sec), plus a compact-dice-tray tweak in a later sitting. See [BUILD_STATE.md](BUILD_STATE.md).
+- **Token accounting:** **89,163,191** total at the latest snapshot — 1,506,897 input, 142,708 output, 249,664 reasoning, 87,262,080 cache read, 1,842 cache write. Cache reads dominate because the full context is re-read each turn. See [build-state.json](build-state.json).
 - **Model / provider:** `opencode-go` · `deepseek-v4.1-flash`
 - **Session:** `ses_e67a68f85ffe5oCsIETmyBfVZY`
 

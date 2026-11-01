@@ -20,7 +20,9 @@
     "feature_snapshot_at": "2026-11-01T12:00:59-08:00",
     "elapsed_seconds": 5899,
     "elapsed_human": "98m 18s",
-    "note": "Cumulative time from session start through the v1.1 review/pacing/tile-inspector/text-size update."
+    "note": "Cumulative time from session start through the v1.1 review/pacing/tile-inspector/text-size update.",
+    "latest_snapshot_at": "2026-11-01T15:04:00-08:00",
+    "latest_note": "Session spans multiple sittings; the 10:22\u201315:04 wall clock includes an idle break. Active build through v1.1 is 98m18s; the compact dice-tray tweak is a short follow-up."
   },
   "tokens": {
     "feature_snapshot": {
@@ -45,7 +47,18 @@
       "input_output_reasoning": 634785
     },
     "provider_reported_cost_usd": 0.0,
-    "note": "Snapshot captured before the final docs write, commit, push and final assistant message; live totals will be marginally higher. Cache reads dominate because the full conversation context is re-read each turn."
+    "note": "Latest snapshot captured at ~15:04, before the final docs/commit/push/reply. The session resumed after a break; token counts are cumulative. Cache reads dominate because the full context is re-read each turn.",
+    "latest_snapshot": {
+      "input": 1506897,
+      "output": 142708,
+      "reasoning": 249664,
+      "cache_read": 87262080,
+      "cache_write": 1842,
+      "total_all_classes": 89163191,
+      "input_plus_output": 1649605,
+      "input_output_reasoning": 1899269,
+      "cache_traffic": 87263922
+    }
   },
   "delivery": {
     "core_files": [
@@ -63,9 +76,9 @@
     ],
     "line_counts": {
       "index.html": 359,
-      "style.css": 1480,
-      "script.js": 3661,
-      "core_total": 5500
+      "style.css": 1521,
+      "script.js": 3700,
+      "core_total": 5580
     },
     "build_step": false,
     "install_step": false,
@@ -84,7 +97,8 @@
     "text-size scaling 100% / 110% / 125% / 140% with persisted settings",
     "header action icon-collapse at 125%+ to preserve a single row",
     "Space/Enter continue shortcut",
-    "settings modal and dock pace chip"
+    "settings modal and dock pace chip",
+    "compact floating 3D dice tray (470px, 14% backdrop, over the board centre; below board on phones; scaled 2D fallback dice)"
   ],
   "validation": {
     "syntax_check": "pass (JavaScriptCore)",
@@ -114,6 +128,18 @@
       "font_110_header_one_row": true,
       "font_125_140_header_one_row": true,
       "log_font_size_at_140": "16.1px"
+    },
+    "compact_dice_tray": {
+      "desktop_panel_px": [
+        456,
+        322
+      ],
+      "desktop_board_px": 761,
+      "mobile_panel_top": 546,
+      "mobile_board_bottom": 547,
+      "backdrop": "rgba(3,5,9,0.14)",
+      "backdrop_blur": "none",
+      "board_visible": "perimeter tiles visible on desktop; fully visible above tray on mobile"
     }
   },
   "credits": {

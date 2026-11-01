@@ -2754,6 +2754,40 @@ function hasWebGL() {
   return webglSupport;
 }
 
+function positionDiceModal() {
+  const overlay = document.getElementById('diceModal');
+  const modal = document.querySelector('#diceModal .dice-modal');
+  const frame = document.getElementById('boardFrame');
+  if (!overlay || !overlay.classList.contains('show') || !modal || !frame) return;
+  const rect = frame.getBoundingClientRect();
+  if (window.innerWidth <= 720) {
+    modal.style.width = '';
+  } else {
+    const panelWidth = Math.min(470, Math.max(320, rect.width * 0.64));
+    modal.style.width = `${Math.round(panelWidth)}px`;
+  }
+  const width = modal.offsetWidth || 470;
+  const height = modal.offsetHeight || 320;
+  const halfW = width / 2;
+  const halfH = height / 2;
+  const maxLeft = Math.max(halfW + 10, window.innerWidth - halfW - 10);
+  const maxTop = Math.max(halfH + 10, window.innerHeight - halfH - 10);
+  let left;
+  let top;
+  if (window.innerWidth <= 720) {
+    // On phones keep the board fully visible and drop the tray near the bottom.
+    left = window.innerWidth / 2;
+    top = window.innerHeight - halfH - 14;
+  } else {
+    left = rect.left + rect.width / 2;
+    top = rect.top + rect.height / 2;
+  }
+  left = clamp(left, halfW + 10, maxLeft);
+  top = clamp(top, halfH + 10, maxTop);
+  modal.style.setProperty('--dice-left', `${left}px`);
+  modal.style.setProperty('--dice-top', `${top}px`);
+}
+
 function openDiceModal(player) {
   return new Promise((resolve) => {
     ui.diceResolve = resolve;
@@ -2767,6 +2801,9 @@ function openDiceModal(player) {
     if (!stage) { resolve([randDie(), randDie()]); return; }
     stage.innerHTML = '<div class="dice-loading"><span class="spinner"></span><p>Loading 3D physics…</p></div>';
     openModal('diceModal');
+    positionDiceModal();
+    requestAnimationFrame(positionDiceModal);
+    setTimeout(positionDiceModal, 60);
 
     ui.diceTicker = setInterval(() => {
       if (!ui.diceResolve) return;
@@ -3234,11 +3271,12 @@ function runFallbackDice(stage, finish) {
 
     const settle = clamp((t - 1100) / 500, 0, 1);
     const ease = 1 - Math.pow(1 - settle, 3);
-    const spread = 78;
-    const midY = height / 2 + 6;
+    const dieSize = Math.min(92, Math.max(50, Math.round(height * 0.4)));
+    const spread = dieSize * 0.86;
+    const midY = height / 2 + 4;
     const wobble = Math.sin(t / 90) * 0.14 * (1 - ease);
-    drawFace(width / 2 - spread, midY, 92, shown[0], wobble);
-    drawFace(width / 2 + spread, midY, 92, shown[1], -wobble);
+    drawFace(width / 2 - spread, midY, dieSize, shown[0], wobble);
+    drawFace(width / 2 + spread, midY, dieSize, shown[1], -wobble);
 
     if (t < 1850) {
       raf = requestAnimationFrame(frame);
@@ -3562,6 +3600,7 @@ function bindEvents() {
 
   // Responsive canvas
   window.addEventListener('resize', debounce(resizeBoard, 120));
+  window.addEventListener('resize', debounce(positionDiceModal, 100));
   if ('ResizeObserver' in window) {
     try {
       new ResizeObserver(debounce(resizeBoard, 100)).observe($('#boardFrame'));

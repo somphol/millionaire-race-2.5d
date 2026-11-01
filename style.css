@@ -954,6 +954,44 @@ button { touch-action: manipulation; }
 }
 .dice-caption { text-align: center; margin: 0 0 2px; font-size: 0.6562rem; color: var(--muted); letter-spacing: 0.4px; }
 
+/* Compact floating dice tray — keeps the board visible during the roll */
+#diceModal {
+  background: rgba(3, 5, 9, 0.14);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  padding: 0;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+#diceModal .dice-modal {
+  position: fixed;
+  left: var(--dice-left, 50vw);
+  top: var(--dice-top, 50vh);
+  width: min(470px, calc(100vw - 24px));
+  max-width: 470px;
+  padding: 12px 14px 10px;
+  border-radius: 18px;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.97);
+  transition: transform 0.24s cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 0.2s ease;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+#diceModal.show .dice-modal {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+#diceModal .dice-head { padding: 0 2px 8px; }
+#diceModal .dice-head h2 { font-size: 1.25rem; }
+#diceModal .dice-head .eyebrow { font-size: 0.5rem; letter-spacing: 1.7px; }
+#diceModal .dice-head .mini-btn { font-size: 0.55rem; padding: 3px 7px; }
+#diceModal .dice-stage { height: 190px; border-radius: 13px; }
+#diceModal .dice-readout { padding: 9px 0 2px; gap: 8px; }
+#diceModal .die-chip { min-width: 36px; height: 36px; font-size: 1rem; border-radius: 9px; }
+#diceModal .die-total { min-width: 44px; height: 36px; font-size: 1.1rem; border-radius: 9px; }
+#diceModal .dice-readout .plus,
+#diceModal .dice-readout .equals { font-size: 0.75rem; }
+#diceModal .dice-caption { font-size: 0.6rem; margin-bottom: 0; }
+
 /* Card modal */
 .card-modal { max-width: 465px; text-align: center; padding: 30px 30px 26px; overflow: hidden; border-color: rgba(176, 136, 255, 0.24); }
 .card-glow {
@@ -1443,6 +1481,9 @@ html[data-font="140"] .ghost-btn::first-letter {
   .lobby-footer-actions { margin-left: 0; width: 100%; justify-content: space-between; }
   .lobby-note { display: none; }
   .dice-modal, .rules-modal { padding: 16px; }
+  #diceModal .dice-modal { width: min(360px, calc(100vw - 20px)); padding: 10px 11px 8px; }
+  #diceModal .dice-stage { height: 150px; }
+  #diceModal .dice-head h2 { font-size: 1.1rem; }
   .card-modal { padding: 24px 20px 20px; }
   .win-modal { padding: 26px 20px 22px; }
   .toast-stack { right: 12px; bottom: 12px; }
