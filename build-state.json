@@ -1,5 +1,5 @@
 {
-  "project": "Millionaire Race 2.5D — Wealth & Asset Tycoon Studio",
+  "project": "Millionaire Race 2.5D \u2014 Wealth & Asset Tycoon Studio",
   "repository": "https://github.com/somphol/millionaire-race-2.5d",
   "homepage": "https://somphol.github.io/millionaire-race-2.5d/",
   "session": {
@@ -14,22 +14,38 @@
   },
   "timing": {
     "started_at": "2026-11-01T10:22:40-08:00",
-    "telemetry_captured_at": "2026-11-01T11:11:06-08:00",
-    "elapsed_seconds": 2905,
-    "elapsed_human": "48m 25s"
+    "first_delivery_at": "2026-11-01T11:11:06-08:00",
+    "first_delivery_seconds": 2905,
+    "first_delivery_human": "48m 25s",
+    "feature_snapshot_at": "2026-11-01T12:00:59-08:00",
+    "elapsed_seconds": 5899,
+    "elapsed_human": "98m 18s",
+    "note": "Cumulative time from session start through the v1.1 review/pacing/tile-inspector/text-size update."
   },
   "tokens": {
-    "input": 407174,
-    "output": 89097,
-    "reasoning": 138514,
-    "cache_read": 30218112,
-    "cache_write": 1842,
-    "total_all_classes": 30854739,
-    "input_plus_output": 496271,
-    "input_output_reasoning": 634785,
-    "cache_traffic": 30219954,
+    "feature_snapshot": {
+      "input": 568437,
+      "output": 132455,
+      "reasoning": 223128,
+      "cache_read": 73790976,
+      "cache_write": 1842,
+      "total_all_classes": 74716838,
+      "input_plus_output": 700892,
+      "input_output_reasoning": 924020,
+      "cache_traffic": 73792818
+    },
+    "first_delivery": {
+      "input": 407174,
+      "output": 89097,
+      "reasoning": 138514,
+      "cache_read": 30218112,
+      "cache_write": 1842,
+      "total_all_classes": 30854739,
+      "input_plus_output": 496271,
+      "input_output_reasoning": 634785
+    },
     "provider_reported_cost_usd": 0.0,
-    "note": "Snapshot captured before the documentation commit and final assistant message; live totals will be marginally higher. Cache reads dominate because the full conversation context is re-read each turn."
+    "note": "Snapshot captured before the final docs write, commit, push and final assistant message; live totals will be marginally higher. Cache reads dominate because the full conversation context is re-read each turn."
   },
   "delivery": {
     "core_files": [
@@ -40,13 +56,16 @@
     "screenshots": [
       "screenshot-board.jpg",
       "screenshot-dice.png",
-      "screenshot-lobby.png"
+      "screenshot-lobby.png",
+      "screenshot-review.png",
+      "screenshot-settings.png",
+      "screenshot-tile.png"
     ],
     "line_counts": {
-      "index.html": 263,
-      "style.css": 1207,
-      "script.js": 3219,
-      "core_total": 4689
+      "index.html": 359,
+      "style.css": 1480,
+      "script.js": 3661,
+      "core_total": 5500
     },
     "build_step": false,
     "install_step": false,
@@ -57,6 +76,16 @@
     ],
     "license": "MIT"
   },
+  "features_v1_1": [
+    "movement speed 0.5x / 0.75x / 1x / 1.5x / 2x / 3x",
+    "manual turn-flow review with Continue button and REVIEW badge",
+    "autosaved review state that survives reload",
+    "clickable/tappable tile inspector with hover outline and dynamic notes",
+    "text-size scaling 100% / 110% / 125% / 140% with persisted settings",
+    "header action icon-collapse at 125%+ to preserve a single row",
+    "Space/Enter continue shortcut",
+    "settings modal and dock pace chip"
+  ],
   "validation": {
     "syntax_check": "pass (JavaScriptCore)",
     "headless_chrome": "pass at 1920x1080, 1440x900 and 390x844; no console errors",
@@ -72,7 +101,20 @@
       "AI buy threshold (cash - price > 20000)",
       "AI lockout threshold (cash > 30000)",
       "localStorage save/load round-trip"
-    ]
+    ],
+    "pacing_review_inspector": {
+      "step_slow_ms": 421,
+      "step_fast_ms": 124,
+      "manual_review": "pass",
+      "auto_flow": "pass",
+      "tile_click_hit_test": "pass",
+      "inspector_blocked_while_moving": true,
+      "inspector_blocked_on_ai_turns": true,
+      "review_state_persistence": "pass",
+      "font_110_header_one_row": true,
+      "font_125_140_header_one_row": true,
+      "log_font_size_at_140": "16.1px"
+    }
   },
   "credits": {
     "built_with": "OpenCode",

@@ -45,17 +45,23 @@
         <strong id="turnLabel">—</strong>
       </div>
       <div class="stat stat-target">
-        <span>Victory Target</span>
+        <span>Target</span>
         <strong>$1,000,000</strong>
       </div>
     </div>
 
     <div class="topbar-actions">
       <button class="icon-btn" id="soundBtn" type="button" title="Toggle sound" aria-label="Toggle sound" aria-pressed="true">🔊</button>
+      <div class="font-control" role="group" aria-label="Text size">
+        <button class="font-btn" id="fontDown" type="button" title="Decrease text size" aria-label="Decrease text size">A−</button>
+        <span class="font-label" id="fontLabel">100%</span>
+        <button class="font-btn" id="fontUp" type="button" title="Increase text size" aria-label="Increase text size">A+</button>
+      </div>
+      <button class="icon-btn" id="settingsBtn" type="button" title="Game settings" aria-label="Game settings">⚙️</button>
       <button class="ghost-btn" id="rulesBtn" type="button" title="How to play">❓ Rules</button>
-      <button class="ghost-btn" id="saveBtn" type="button" title="Export match as JSON">💾 Save Match</button>
-      <button class="ghost-btn" id="loadBtn" type="button" title="Import a match JSON">📂 Load Match</button>
-      <button class="ghost-btn danger" id="newGameBtn" type="button" title="Start a new match">🔄 New Game</button>
+      <button class="ghost-btn" id="saveBtn" type="button" title="Export match as JSON">💾 Save</button>
+      <button class="ghost-btn" id="loadBtn" type="button" title="Import a match JSON">📂 Load</button>
+      <button class="ghost-btn danger" id="newGameBtn" type="button" title="Start a new match">🔄 New</button>
     </div>
   </header>
 
@@ -74,7 +80,10 @@
             <span class="dot" id="dockDot"></span>
             <span id="dockName">Waiting for players</span>
           </div>
-          <p class="dock-hint" id="dockHint">Configure your tycoons and start a match.</p>
+          <div class="dock-meta">
+            <p class="dock-hint" id="dockHint">Configure your tycoons and start a match.</p>
+            <button class="dock-chip" id="paceChip" type="button" title="Speed &amp; turn flow settings">1× · Manual</button>
+          </div>
         </div>
         <div class="dock-actions" id="dockActions">
           <button class="btn btn-primary" id="rollBtn" type="button" hidden>🎲 Roll Dice</button>
@@ -82,6 +91,7 @@
           <button class="btn btn-ghost" id="passBtn" type="button" hidden>Pass</button>
           <button class="btn btn-gold" id="lockoutPayBtn" type="button" hidden>Pay $10,000</button>
           <button class="btn btn-ghost" id="lockoutSkipBtn" type="button" hidden>Lose Turn</button>
+          <button class="btn btn-gold" id="continueTurnBtn" type="button" hidden>Continue →</button>
           <button class="btn btn-primary" id="againBtn" type="button" hidden>🏆 New Match</button>
         </div>
       </div>
@@ -115,6 +125,7 @@
           <li><span class="swatch-dot asset"></span><b>Assets</b> buy, collect rent, build net worth</li>
           <li><span class="swatch-dot chance"></span><b>Cards</b> market swings &amp; opportunities</li>
           <li><span class="swatch-dot tax"></span><b>Taxes</b> drain liquid cash — keep reserves</li>
+          <li><span class="swatch-dot info"></span><b>Tiles</b> click any box for full details</li>
         </ul>
       </section>
     </aside>
@@ -212,6 +223,87 @@
     </div>
   </div>
 
+  <!-- ══════════════════ SETTINGS MODAL ══════════════════ -->
+  <div class="modal-overlay" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal settings-modal">
+      <div class="dice-head">
+        <div>
+          <p class="eyebrow">Table Settings</p>
+          <h2 id="settingsTitle">Tune the table</h2>
+        </div>
+        <button class="mini-btn" id="settingsCloseBtn" type="button">Close</button>
+      </div>
+
+      <div class="settings-body">
+        <section class="setting-row">
+          <div>
+            <h3>Movement speed</h3>
+            <p>Slow down pawn steps and AI pacing so you can follow every box. Changes apply immediately.</p>
+          </div>
+          <div class="speed-picker" id="speedPicker" role="group" aria-label="Movement speed">
+            <button type="button" data-speed="0.5">0.5×</button>
+            <button type="button" data-speed="0.75">0.75×</button>
+            <button type="button" data-speed="1">1×</button>
+            <button type="button" data-speed="1.5">1.5×</button>
+            <button type="button" data-speed="2">2×</button>
+            <button type="button" data-speed="3">3×</button>
+          </div>
+        </section>
+
+        <section class="setting-row">
+          <div>
+            <h3>Turn flow</h3>
+            <p>Manual pauses after your turn with a Continue button, so you can review the tile, rent and your new balance before the next player moves.</p>
+          </div>
+          <div class="segmented" id="turnModePicker" role="group" aria-label="Turn flow">
+            <button type="button" data-mode="manual">Manual</button>
+            <button type="button" data-mode="auto">Auto</button>
+          </div>
+        </section>
+
+        <section class="setting-row">
+          <div>
+            <h3>Text size</h3>
+            <p>Scales the interface, lobby, sidebar, dialogs and result messages. Tile cards also open in large detail view.</p>
+          </div>
+          <div class="font-stepper">
+            <button id="fontDown2" type="button" aria-label="Decrease text size">A−</button>
+            <strong id="fontLabel2">100%</strong>
+            <button id="fontUp2" type="button" aria-label="Increase text size">A+</button>
+          </div>
+        </section>
+
+        <p class="settings-tip">💡 Tip: click any board tile to open its full details — price, rent, owner, tier and effect.</p>
+      </div>
+
+      <div class="settings-footer">
+        <button class="btn btn-ghost" id="settingsRulesBtn" type="button">View Full Rules</button>
+        <button class="btn btn-gold" id="settingsDoneBtn" type="button">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════ TILE DETAILS MODAL ══════════════════ -->
+  <div class="modal-overlay" id="tileModal" role="dialog" aria-modal="true" aria-labelledby="tileTitle">
+    <div class="modal tile-modal">
+      <div class="tile-modal-head">
+        <div class="tile-modal-icon" id="tileIcon" aria-hidden="true">🏙️</div>
+        <div>
+          <p class="eyebrow" id="tileType">Board tile</p>
+          <h2 id="tileTitle">Tile</h2>
+        </div>
+        <button class="mini-btn" id="tileCloseBtn" type="button">Close</button>
+      </div>
+      <div class="tile-owner" id="tileOwner"></div>
+      <p class="tile-desc" id="tileDesc"></p>
+      <div class="tile-facts" id="tileFacts"></div>
+      <div class="tile-note" id="tileNote" hidden></div>
+      <div class="tile-modal-actions">
+        <button class="btn btn-gold" id="tileDoneBtn" type="button">Got it</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ══════════════════ RULES MODAL ══════════════════ -->
   <div class="modal-overlay" id="rulesModal" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
     <div class="modal rules-modal">
@@ -247,8 +339,12 @@
           <h3>🔒 Lockout</h3>
           <p>Tile 18 sends you to the Luxury Club and costs your next turn — unless you pay the $10,000 exit fee. Tax loophole cards cancel your next tax bill.</p>
         </div>
+        <div class="rule-card">
+          <h3>🔎 Review &amp; inspect</h3>
+          <p>Open <b>Table Settings</b> to slow movement and pause after your turn. In Manual mode a <b>Continue</b> button appears when you are ready. Click any tile for its full details.</p>
+        </div>
       </div>
-      <div class="rules-foot">Tip: press <kbd>R</kbd> to roll, <kbd>Esc</kbd> to close dialogs.</div>
+      <div class="rules-foot">Tip: press <kbd>R</kbd> to roll, <kbd>Space</kbd> to continue after review, <kbd>Esc</kbd> to close dialogs.</div>
     </div>
   </div>
 

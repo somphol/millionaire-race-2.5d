@@ -291,7 +291,14 @@ const Sound = {
 
 let state = null;
 
-let settings = { sound: true, lobbyCount: 4, lobby: null };
+let settings = {
+  sound: true,
+  lobbyCount: 4,
+  lobby: null,
+  speed: 1,
+  autoAdvance: false,
+  fontScale: 1.1
+};
 
 const lobbyConfig = [
   { name: 'You',  color: 'red',    type: 'human' },
@@ -311,7 +318,8 @@ const ui = {
   pendingCard: null,
   lastDraw: 0,
   dirty: true,
-  audioReady: false
+  audioReady: false,
+  hoverTile: -1
 };
 
 /* ═══════════════ 5 · GAME STATE HELPERS ═══════════════ */
@@ -422,7 +430,7 @@ function normalizeState(raw) {
 
   const playersCount = players.length;
   const current = clamp(Math.round(Number(raw.current) || 0), 0, playersCount - 1);
-  const phase = raw.phase === 'ended' ? 'ended' : 'awaitRoll';
+  const phase = raw.phase === 'ended' ? 'ended' : raw.phase === 'review' ? 'review' : 'awaitRoll';
 
   return {
     version: SAVE_VERSION,
@@ -565,7 +573,7 @@ function beginTurn() {
         if (epoch !== ui.epoch || !state || state.phase !== 'lockout') return;
         if (player.cash > 30000) payLockoutFee(player);
         else skipLockedTurn(player);
-      }, 950);
+      }, paced(950));
     }
     return;
   }
@@ -577,7 +585,7 @@ function beginTurn() {
     setTimeout(() => {
       if (epoch !== ui.epoch || !state || state.phase !== 'awaitRoll') return;
       rollDiceForCurrent();
-    }, 1000);
+    }, paced(1000));
   }
 }
 
@@ -596,7 +604,7 @@ function payLockoutFee(player) {
     setTimeout(() => {
       if (epoch !== ui.epoch || !state || state.phase !== 'awaitRoll') return;
       rollDiceForCurrent();
-    }, 750);
+    }, paced(750));
   }
 }
 
@@ -605,7 +613,7 @@ function skipLockedTurn(player) {
   player.lockout = false;
   addLog(`${player.name} loses this turn to the audit lockout.`, 'bad');
   toast(`${player.name} lost a turn`, 'bad');
-  finishTurn();
+  endTurnSoon(420);
 }
 
 async function rollDiceForCurrent() {
@@ -644,7 +652,7 @@ async function movePlayerBy(player, steps, epoch) {
     Sound.step();
     if (to === 0) {
       collectGo(player);
-      await wait(260);
+      await wait(paced(260));
     }
   }
 }
@@ -653,11 +661,12 @@ function animatePawnStep(player, fromPos, toPos) {
   return new Promise((resolve) => {
     const from = tileCenter(fromPos);
     const to = tileCenter(toPos);
-    ui.anim = { playerId: player.id, from, to, start: performance.now(), dur: 200 };
+    const dur = Math.max(65, Math.round(200 / (settings.speed || 1)));
+    ui.anim = { playerId: player.id, from, to, start: performance.now(), dur };
     setTimeout(() => {
       ui.anim = null;
       resolve();
-    }, 210);
+    }, dur + 20);
   });
 }
 
@@ -802,12 +811,13 @@ function resolveLockout(player) {
 
   const from = tileCenter(fromPos);
   const to = tileCenter(6);
-  ui.anim = { playerId: player.id, from, to, start: performance.now(), dur: 560 };
+  const dur = Math.max(260, Math.round(560 / (settings.speed || 1)));
+  ui.anim = { playerId: player.id, from, to, start: performance.now(), dur };
   updateUI();
   setTimeout(() => {
     ui.anim = null;
-    if (state && state.phase !== 'ended') finishTurn();
-  }, 680);
+    if (state && state.phase !== 'ended') endTurnSoon(380);
+  }, dur + 120);
 }
 
 /* ═══════════════ 8 · CARDS ═══════════════ */
@@ -834,7 +844,7 @@ function drawCard(player, kind) {
     setTimeout(() => {
       if (epoch !== ui.epoch || !state || !ui.pendingCard) return;
       resolvePendingCard();
-    }, 1850);
+    }, paced(1850));
   }
 }
 
@@ -909,14 +919,35 @@ function applyCard(card, player) {
 
 function endTurnSoon(delay = 800) {
   if (!state || state.phase === 'ended') return;
+  const player = currentPlayer();
+  const manualPause = !settings.autoAdvance && player && !player.isAI && !player.bankrupt;
+
   state.phase = 'resolving';
   updateUI();
   clearTimeout(ui.endTimer);
   const epoch = ui.epoch;
+
+  if (manualPause) {
+    const reviewDelay = Math.max(120, Math.min(900, paced(delay)));
+    ui.endTimer = setTimeout(() => {
+      if (epoch !== ui.epoch || !state || state.phase === 'ended') return;
+      state.phase = 'review';
+      updateUI();
+      saveLocal();
+    }, reviewDelay);
+    return;
+  }
+
   ui.endTimer = setTimeout(() => {
     if (epoch !== ui.epoch || !state || state.phase === 'ended') return;
     finishTurn();
-  }, delay);
+  }, paced(delay));
+}
+
+function continueTurn() {
+  if (!state || state.phase !== 'review') return;
+  Sound.click();
+  finishTurn();
 }
 
 function finishTurn() {
@@ -1058,6 +1089,14 @@ function loadState(raw, sourceLabel) {
     return;
   }
 
+  if (state.phase === 'review') {
+    addLog('📂 Turn restored at the review step — continue when ready.', 'special');
+    updateUI();
+    saveLocal();
+    toast('Review restored — continue when ready', 'good');
+    return;
+  }
+
   // If the active seat was eliminated, move to the next solvent player.
   if (!state.players[state.current] || state.players[state.current].bankrupt) {
     const idx = state.players.findIndex((p) => !p.bankrupt);
@@ -1121,6 +1160,9 @@ function saveSettings() {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify({
       sound: settings.sound,
       lobbyCount: ui.lobbyCount,
+      speed: settings.speed,
+      autoAdvance: settings.autoAdvance,
+      fontScale: settings.fontScale,
       lobby: lobbyConfig.map((c) => ({ ...c }))
     }));
   } catch (_) { /* ignore */ }
@@ -1133,6 +1175,9 @@ function loadSettings() {
     const parsed = JSON.parse(raw);
     if (typeof parsed.sound === 'boolean') settings.sound = parsed.sound;
     if ([2, 3, 4].includes(parsed.lobbyCount)) ui.lobbyCount = parsed.lobbyCount;
+    if (SPEED_LEVELS.includes(parsed.speed)) settings.speed = parsed.speed;
+    if (typeof parsed.autoAdvance === 'boolean') settings.autoAdvance = parsed.autoAdvance;
+    if (FONT_LEVELS.includes(parsed.fontScale)) settings.fontScale = parsed.fontScale;
     if (Array.isArray(parsed.lobby) && parsed.lobby.length === 4) {
       parsed.lobby.forEach((cfg, i) => {
         if (!cfg) return;
@@ -1278,6 +1323,87 @@ function updateSoundButton() {
   btn.title = settings.sound ? 'Mute sound' : 'Enable sound';
 }
 
+/* ───────────── Speed, turn pacing & text size ───────────── */
+
+const FONT_LEVELS = [1, 1.1, 1.25, 1.4];
+const SPEED_LEVELS = [0.5, 0.75, 1, 1.5, 2, 3];
+
+function paced(ms) {
+  return Math.max(35, Math.round(ms / (settings.speed || 1)));
+}
+
+function updateFontLabels() {
+  const label = `${Math.round(settings.fontScale * 100)}%`;
+  const a = $('#fontLabel');
+  const b = $('#fontLabel2');
+  if (a) a.textContent = label;
+  if (b) b.textContent = label;
+}
+
+function applyFontScale() {
+  if (!FONT_LEVELS.includes(settings.fontScale)) settings.fontScale = 1;
+  document.documentElement.style.fontSize = (16 * settings.fontScale).toFixed(2) + 'px';
+  document.documentElement.dataset.font = String(Math.round(settings.fontScale * 100));
+  updateFontLabels();
+  setTimeout(() => { try { resizeBoard(); } catch (_) { /* ignore */ } }, 120);
+}
+
+function cycleFont(direction) {
+  let index = FONT_LEVELS.findIndex((v) => Math.abs(v - settings.fontScale) < 0.01);
+  if (index < 0) index = 0;
+  const next = clamp(index + direction, 0, FONT_LEVELS.length - 1);
+  if (next === index) {
+    toast(direction > 0 ? 'Maximum text size reached' : 'Minimum text size reached', 'info');
+    return;
+  }
+  settings.fontScale = FONT_LEVELS[next];
+  applyFontScale();
+  saveSettings();
+  Sound.click();
+  toast(`Text size ${Math.round(settings.fontScale * 100)}%`, 'info');
+}
+
+function applyPaceUI() {
+  const speed = settings.speed;
+  $$('#speedPicker button').forEach((btn) => {
+    btn.classList.toggle('active', Math.abs(Number(btn.dataset.speed) - speed) < 0.001);
+  });
+  $$('#turnModePicker button').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.mode === (settings.autoAdvance ? 'auto' : 'manual'));
+  });
+  const chip = $('#paceChip');
+  if (chip) chip.textContent = `${speed}× · ${settings.autoAdvance ? 'Auto' : 'Manual'}`;
+}
+
+function setSpeed(value) {
+  const speed = Number(value);
+  if (!SPEED_LEVELS.includes(speed)) return;
+  settings.speed = speed;
+  applyPaceUI();
+  saveSettings();
+  Sound.click();
+  toast(`Movement speed ${speed}×`, 'info');
+}
+
+function setTurnMode(mode) {
+  settings.autoAdvance = mode === 'auto';
+  applyPaceUI();
+  saveSettings();
+  Sound.click();
+  toast(settings.autoAdvance ? 'Turn flow: Auto' : 'Turn flow: Manual — Continue after your turn', 'info');
+}
+
+function openSettings() {
+  if (state && !canInspectBoard()) {
+    toast('Finish the current action, then open settings.', 'warn');
+    return;
+  }
+  applyPaceUI();
+  updateFontLabels();
+  openModal('settingsModal');
+  Sound.click();
+}
+
 /* ═══════════════ 12 · UI RENDERING ═══════════════ */
 
 function updateUI() {
@@ -1291,9 +1417,10 @@ function updateUI() {
   const passBtn = $('#passBtn');
   const lockoutPayBtn = $('#lockoutPayBtn');
   const lockoutSkipBtn = $('#lockoutSkipBtn');
+  const continueTurnBtn = $('#continueTurnBtn');
   const againBtn = $('#againBtn');
 
-  [rollBtn, buyBtn, passBtn, lockoutPayBtn, lockoutSkipBtn, againBtn].forEach((b) => { if (b) b.hidden = true; });
+  [rollBtn, buyBtn, passBtn, lockoutPayBtn, lockoutSkipBtn, continueTurnBtn, againBtn].forEach((b) => { if (b) b.hidden = true; });
 
   if (!state) {
     if (roundLabel) roundLabel.textContent = '— / 30';
@@ -1367,6 +1494,11 @@ function updateUI() {
     }
   } else if (state.phase === 'resolving') {
     hint = 'Settling accounts…';
+  } else if (state.phase === 'review') {
+    hint = player && !player.isAI
+      ? 'Turn complete — click a tile for details, then continue.'
+      : `${player.name} finished their turn — continue when ready.`;
+    if (continueTurnBtn) continueTurnBtn.hidden = false;
   }
 
   if (dockHint) dockHint.textContent = hint;
@@ -1392,8 +1524,10 @@ function renderLeaderboard() {
     const pct = clamp((worth / TARGET_NET_WORTH) * 100, 0, 100);
     const color = PLAYER_COLORS[p.color];
     const assets = ownedTiles(p).length;
+    const isReview = state.phase === 'review' && p.id === state.current;
+    const isTurn = state.phase !== 'ended' && !isReview && currentPlayer() && p.id === state.current;
     return `
-      <div class="lb-row ${state.phase !== 'ended' && currentPlayer() && p.id === state.current ? 'is-turn' : ''} ${p.bankrupt ? 'bankrupt' : ''}">
+      <div class="lb-row ${isTurn ? 'is-turn' : ''} ${isReview ? 'is-review' : ''} ${p.bankrupt ? 'bankrupt' : ''}">
         <span class="lb-color" style="--pc:${color.hex}"></span>
         <div class="lb-main">
           <div class="lb-name">
@@ -1458,7 +1592,7 @@ function closeModal(id) {
 }
 
 function closeAllModals() {
-  ['lobby', 'diceModal', 'cardModal', 'winModal', 'rulesModal'].forEach(closeModal);
+  ['lobby', 'diceModal', 'cardModal', 'winModal', 'rulesModal', 'settingsModal', 'tileModal'].forEach(closeModal);
 }
 
 /* ═══════════════ 13 · BOARD GEOMETRY ═══════════════ */
@@ -2057,6 +2191,7 @@ function drawTile(index, now) {
   }
 
   // name
+  const fontBoost = 1 + (settings.fontScale - 1) * 0.55;
   const nameY = isOwnedAsset ? y + 80 : y + 57;
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.45)';
@@ -2067,7 +2202,7 @@ function drawTile(index, now) {
     nameY,
     w - 16,
     isOwnedAsset ? 2 : 3,
-    tile.name.length > 18 ? 9.5 : 11,
+    (tile.name.length > 18 ? 9.5 : 11) * fontBoost,
     700,
     '#eef3fb',
     1.08
@@ -2080,16 +2215,16 @@ function drawTile(index, now) {
   ctx.textBaseline = 'middle';
   if (tile.type === 'asset') {
     if (owner) {
-      setFont(10, 700);
+      setFont(10 * fontBoost, 700);
       ctx.fillStyle = ownerColor.hex;
       ctx.fillText(`RENT ${fmtCompact(tile.rent)}`, cx, bottomY);
     } else {
-      setFont(11, 800);
+      setFont(11 * fontBoost, 800);
       ctx.fillStyle = '#f2c53d';
       ctx.fillText(fmtCompact(tile.price), cx, bottomY);
     }
   } else {
-    drawFitText(tile.themeNote || '', cx, bottomY, w - 20, 1, 8.8, 700, theme.note || '#a4b1c4', 1);
+    drawFitText(tile.themeNote || '', cx, bottomY, w - 20, 1, 8.8 * fontBoost, 700, theme.note || '#a4b1c4', 1);
   }
 
   // owner flag + tier stars
@@ -2145,6 +2280,16 @@ function drawTile(index, now) {
       ctx.stroke();
       ctx.restore();
     }
+  }
+
+  // hover outline for tile inspection
+  if (state && ui.hoverTile === index && canInspectBoard()) {
+    ctx.save();
+    roundRectPath(x - 1, y - 1, w + 2, h + 2, 10);
+    ctx.strokeStyle = 'rgba(255,255,255,0.42)';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
@@ -2362,7 +2507,218 @@ function drawPawn(x, baseY, colorObj, name, scale = 0.8) {
   ctx.restore();
 }
 
-/* ═══════════════ 15 · 3D DICE (Three.js + Cannon.js) ═══════════════ */
+/* ═══════════════ 15 · TILE INSPECTOR ═══════════════ */
+
+const TILE_DESCRIPTIONS = {
+  go: 'Passing or landing on GO pays the $20,000 salary plus 10% dividends on the buy value of every stock asset you own.',
+  asset: 'A revenue-generating asset. Buy it while unowned; land here after a rival buys it and you pay rent or yield to the owner.',
+  chest: 'Draw from the shuffled Opportunity Chest. Cards can deliver bull-market bonuses, crypto losses, real-estate booms or a tax loophole.',
+  chance: 'Draw from the shuffled Market Chance deck. Market swings can pay you or cost you before your next roll.',
+  tax: 'Taxes are paid from liquid cash. If cash is short, assets auto-mortgage at 50% of their buy value. A tax-loophole card waives the next tax tile.',
+  crash: 'A market correction. You lose 15% of the buy value of your most expensive asset, paid from cash.',
+  visit: 'The Luxury Club is a safe zone. Nothing happens when you land here — it is also where the Audit Lockout sends you.',
+  parking: 'Rest at the Boutique Hotel and collect a $5,000 bonus from the bank.',
+  lockout: 'The audit lockout sends you directly to the Luxury Club (tile 6). Your next turn is lost unless you pay the $10,000 exit fee.'
+};
+
+function tileTypeLabel(tile) {
+  switch (tile.type) {
+    case 'go': return 'Corner · Salary';
+    case 'asset': return tile.assetType === 'stock' ? 'Stock asset' : 'Property asset';
+    case 'chest': return 'Opportunity Chest';
+    case 'chance': return 'Market Chance';
+    case 'tax': return 'Tax tile';
+    case 'crash': return 'Market event';
+    case 'visit': return 'Safe zone';
+    case 'parking': return 'Corner · Bonus';
+    case 'lockout': return 'Penalty tile';
+    default: return 'Board tile';
+  }
+}
+
+function tileIndexAt(clientX, clientY) {
+  if (!canvas) return -1;
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return -1;
+  const x = (clientX - rect.left) * (BOARD_SIZE / rect.width);
+  const y = (clientY - rect.top) * (BOARD_SIZE / rect.height);
+  for (let i = 0; i < TILE_COUNT; i++) {
+    const r = tileRect(i);
+    if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return i;
+  }
+  return -1;
+}
+
+function canInspectBoard() {
+  if (!state) return false;
+  if (['rolling', 'moving', 'card', 'resolving'].includes(state.phase)) return false;
+  const player = currentPlayer();
+  if ((state.phase === 'awaitRoll' || state.phase === 'lockout') && player && player.isAI) return false;
+  return true;
+}
+
+function openTileDetails(index) {
+  if (!state) return;
+  const tile = state.tiles[index];
+  if (!tile) return;
+  const owner = tile.ownerId != null ? state.players[tile.ownerId] : null;
+  const ownerColor = owner ? PLAYER_COLORS[owner.color] : null;
+  const theme = tileTheme(tile);
+  const tier = assetTier(tile);
+  const viewer = currentPlayer();
+  const vHuman = !!viewer && !viewer.isAI;
+  const subj = vHuman ? 'you' : (viewer ? viewer.name : 'the player');
+  const subjCap = vHuman ? 'You' : subj;
+  const poss = vHuman ? 'Your' : (viewer ? `${viewer.name}'s` : "the player's");
+  const facts = [];
+  const notes = [];
+  const standing = state.players.filter((p) => !p.bankrupt && p.position === index);
+
+  $('#tileIcon').textContent = tile.icon;
+  $('#tileIcon').style.setProperty('--tc', ownerColor ? ownerColor.hex : theme.accent);
+  $('#tileType').textContent = tileTypeLabel(tile);
+  $('#tileTitle').textContent = tile.name;
+
+  const ownerEl = $('#tileOwner');
+  if (tile.type === 'asset') {
+    ownerEl.hidden = false;
+    if (owner) {
+      ownerEl.innerHTML = `
+        <span class="owner-chip" style="--pc:${ownerColor.hex}">${escapeHtml(owner.name)}</span>
+        <span class="owner-meta">${owner.isAI ? 'AI rival' : 'Human'} · ${fmt(netWorth(owner))} net worth</span>
+      `;
+    } else {
+      ownerEl.innerHTML = '<span class="owner-chip unowned">Unowned — available for purchase</span>';
+    }
+  } else {
+    ownerEl.hidden = true;
+    ownerEl.innerHTML = '';
+  }
+
+  if (tile.type === 'asset') {
+    const kind = tile.assetType === 'stock' ? 'Stock' : 'Property';
+    $('#tileDesc').textContent = `${kind} asset. Buy it while unowned; landing here while a rival owns it pays ${fmt(tile.rent)} ${tile.assetType === 'stock' ? 'yield' : 'rent'} to the owner.`;
+    facts.push(['Buy value', fmt(tile.price), '']);
+    facts.push([tile.assetType === 'stock' ? 'Yield / landing' : 'Rent / landing', fmt(tile.rent), 'good']);
+    facts.push(['Asset class', kind, '']);
+    facts.push(['Tier', '★'.repeat(tier) + ` (${tier}/4)`, '']);
+    facts.push(['Status', tile.mortgaged ? 'Mortgaged' : owner ? 'Active' : 'Unowned', tile.mortgaged ? 'warn' : '']);
+    facts.push(['Owner', owner ? owner.name : 'Bank', '']);
+
+    if (!owner) {
+      notes.push(`Available for ${fmt(tile.price)} when you land here.`);
+      if (viewer) {
+        notes.push(viewer.cash >= tile.price
+          ? `${poss} cash covers it — ${subj} would have ${fmt(viewer.cash - tile.price)} left.`
+          : `${subjCap} would need ${fmt(tile.price - viewer.cash)} more cash.`);
+      }
+    } else if (viewer && owner.id === viewer.id) {
+      notes.push(vHuman
+        ? `You own this asset. It contributes ${fmt(tile.price)} to your net worth.`
+        : `${viewer.name} owns this asset. It contributes ${fmt(tile.price)} to their net worth.`);
+    } else {
+      notes.push(`Landing here costs ${fmt(tile.rent)} ${tile.assetType === 'stock' ? 'yield' : 'rent'} to ${owner.name}.`);
+    }
+    if (tile.mortgaged) notes.push('Mortgaged at 50% of buy value — it still counts toward net worth and rent.');
+  } else {
+    $('#tileDesc').textContent = TILE_DESCRIPTIONS[tile.type] || 'A board tile.';
+    switch (tile.type) {
+      case 'go':
+        facts.push(['Salary', fmt(GO_SALARY), 'good']);
+        facts.push(['Stock dividend', '10% of stock value', 'good']);
+        facts.push(['Applies', 'Pass or land', '']);
+        facts.push(['Tile', 'Corner · 0', '']);
+        notes.push('Collect this every time you pass or land on GO.');
+        break;
+      case 'chest':
+      case 'chance':
+        facts.push(['Deck', tile.type === 'chest' ? 'Opportunity Chest' : 'Market Chance', '']);
+        facts.push(['Cards', String(CARD_DEFS.length), '']);
+        facts.push(['Draw', '1 card', '']);
+        facts.push(['Refill', 'When exhausted', '']);
+        notes.push('The deck is shuffled with Fisher–Yates and refilled when exhausted.');
+        break;
+      case 'tax':
+        if (tile.taxMode === 'audit') {
+          facts.push(['Tax rate', '10% of cash', 'warn']);
+          facts.push(['Paid from', 'Liquid cash', '']);
+          facts.push(['Next tax', 'Loophole waives', 'good']);
+          facts.push(['Type', 'Audit', '']);
+        } else {
+          facts.push(['Fixed payment', fmt(tile.fixed), 'warn']);
+          facts.push(['Paid from', 'Liquid cash', '']);
+          facts.push(['Next tax', 'Loophole waives', 'good']);
+          facts.push(['Type', 'Fine', '']);
+        }
+        if (viewer) notes.push(`If ${subj} landed here now, the bill would be ${fmt(tile.taxMode === 'audit' ? Math.round(viewer.cash * 0.10) : tile.fixed)}.`);
+        break;
+      case 'crash':
+        facts.push(['Loss', '15% of value', 'warn']);
+        facts.push(['Based on', 'Most expensive asset', '']);
+        facts.push(['Paid from', 'Cash', '']);
+        facts.push(['Applies', 'Every landing', '']);
+        if (viewer) {
+          const owned = ownedTiles(viewer);
+          if (owned.length) {
+            const priciest = owned.reduce((a, b) => (b.price > a.price ? b : a));
+            notes.push(`If ${subj} landed now, ${priciest.name} would lose ${fmt(Math.round(priciest.price * 0.15))} in cash value.`);
+          } else {
+            notes.push(`${subjCap} ${vHuman ? 'have' : 'has'} no assets exposed to a crash.`);
+          }
+        }
+        break;
+      case 'visit':
+        facts.push(['Effect', 'No action', 'good']);
+        facts.push(['Tile', 'Safe zone', '']);
+        facts.push(['Lockout exit', 'Tile 6', '']);
+        facts.push(['Rent', 'None', 'good']);
+        notes.push('A safe corner — use it to catch your breath.');
+        break;
+      case 'parking':
+        facts.push(['Bonus', fmt(5000), 'good']);
+        facts.push(['Applies', 'Every landing', '']);
+        facts.push(['Tile', 'Corner · 12', '']);
+        facts.push(['Rent', 'None', 'good']);
+        notes.push('Collect the bonus automatically when you land here.');
+        break;
+      case 'lockout':
+        facts.push(['Destination', 'Luxury Club (6)', 'warn']);
+        facts.push(['Next turn', 'Lost unless paid', 'warn']);
+        facts.push(['Exit fee', fmt(LOCKOUT_FEE), '']);
+        facts.push(['Paid at', 'Start of next turn', '']);
+        notes.push('Pay the $10,000 exit fee at the start of your next turn to play normally, or lose that turn.');
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (standing.length) {
+    const names = standing.map((p) => p.name).join(', ');
+    notes.unshift(`Currently standing here: ${names}.`);
+  }
+
+  $('#tileFacts').innerHTML = facts.map(([label, value, tone]) => `
+    <div class="tile-fact">
+      <span>${escapeHtml(label)}</span>
+      <strong class="${tone || ''}">${escapeHtml(value)}</strong>
+    </div>
+  `).join('');
+
+  const noteEl = $('#tileNote');
+  if (notes.length) {
+    noteEl.hidden = false;
+    noteEl.textContent = notes.join(' ');
+  } else {
+    noteEl.hidden = true;
+    noteEl.textContent = '';
+  }
+
+  openModal('tileModal');
+  Sound.click();
+}
+
+
 
 function stopDiceVisuals() {
   clearInterval(ui.diceTicker);
@@ -2995,6 +3351,38 @@ function bindEvents() {
     toast(settings.sound ? 'Sound on' : 'Sound muted', 'info');
   });
 
+  // Text size controls (header + settings modal)
+  $('#fontDown') && $('#fontDown').addEventListener('click', () => cycleFont(-1));
+  $('#fontUp') && $('#fontUp').addEventListener('click', () => cycleFont(1));
+  $('#fontDown2') && $('#fontDown2').addEventListener('click', () => cycleFont(-1));
+  $('#fontUp2') && $('#fontUp2').addEventListener('click', () => cycleFont(1));
+
+  // Settings modal
+  $('#settingsBtn') && $('#settingsBtn').addEventListener('click', openSettings);
+  $('#paceChip') && $('#paceChip').addEventListener('click', openSettings);
+  $('#settingsCloseBtn') && $('#settingsCloseBtn').addEventListener('click', () => closeModal('settingsModal'));
+  $('#settingsDoneBtn') && $('#settingsDoneBtn').addEventListener('click', () => closeModal('settingsModal'));
+  $('#settingsRulesBtn') && $('#settingsRulesBtn').addEventListener('click', () => {
+    closeModal('settingsModal');
+    openModal('rulesModal');
+  });
+  $$('#speedPicker button').forEach((btn) => {
+    btn.addEventListener('click', () => setSpeed(btn.dataset.speed));
+  });
+  $$('#turnModePicker button').forEach((btn) => {
+    btn.addEventListener('click', () => setTurnMode(btn.dataset.mode));
+  });
+  $('#settingsModal') && $('#settingsModal').addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'settingsModal') closeModal('settingsModal');
+  });
+
+  // Tile detail modal
+  $('#tileCloseBtn') && $('#tileCloseBtn').addEventListener('click', () => closeModal('tileModal'));
+  $('#tileDoneBtn') && $('#tileDoneBtn').addEventListener('click', () => closeModal('tileModal'));
+  $('#tileModal') && $('#tileModal').addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'tileModal') closeModal('tileModal');
+  });
+
   $('#saveBtn') && $('#saveBtn').addEventListener('click', exportSave);
   $('#loadBtn') && $('#loadBtn').addEventListener('click', () => {
     const input = $('#fileInput');
@@ -3060,6 +3448,8 @@ function bindEvents() {
     skipLockedTurn(player);
   });
 
+  $('#continueTurnBtn') && $('#continueTurnBtn').addEventListener('click', continueTurn);
+
   // Dice skip
   $('#diceSkipBtn') && $('#diceSkipBtn').addEventListener('click', () => {
     Sound.init();
@@ -3073,6 +3463,10 @@ function bindEvents() {
 
   // Rules
   $('#rulesBtn') && $('#rulesBtn').addEventListener('click', () => {
+    if (state && !canInspectBoard()) {
+      toast('Finish the current action, then open the rules.', 'warn');
+      return;
+    }
     Sound.init();
     Sound.click();
     openModal('rulesModal');
@@ -3096,15 +3490,28 @@ function bindEvents() {
   // Keyboard
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      if ($('#settingsModal') && $('#settingsModal').classList.contains('show')) { closeModal('settingsModal'); return; }
+      if ($('#tileModal') && $('#tileModal').classList.contains('show')) { closeModal('tileModal'); return; }
       if ($('#rulesModal') && $('#rulesModal').classList.contains('show')) { closeModal('rulesModal'); return; }
       if ($('#winModal') && $('#winModal').classList.contains('show')) { closeModal('winModal'); return; }
       if ($('#lobby') && $('#lobby').classList.contains('show') && state) { closeModal('lobby'); return; }
     }
-    if ((e.key === 'r' || e.key === 'R') && state && state.phase === 'awaitRoll') {
+
+    const modalOpen = !!document.querySelector('.modal-overlay.show');
+    if ((e.key === 'r' || e.key === 'R') && state && state.phase === 'awaitRoll' && !modalOpen) {
       const player = currentPlayer();
       if (player && !player.isAI) {
         Sound.init();
         rollDiceForCurrent();
+      }
+    }
+
+    if ((e.key === ' ' || e.key === 'Enter') && state && state.phase === 'review' && !modalOpen) {
+      const tag = (e.target && e.target.tagName ? e.target.tagName : '').toLowerCase();
+      if (!['input', 'textarea', 'select', 'button'].includes(tag)) {
+        e.preventDefault();
+        Sound.init();
+        continueTurn();
       }
     }
   });
@@ -3121,6 +3528,37 @@ function bindEvents() {
   window.addEventListener('beforeunload', () => {
     if (state) saveLocal();
   });
+
+  // Tile inspection (click / tap + hover highlight)
+  if (canvas) {
+    canvas.addEventListener('click', (e) => {
+      if (!state) return;
+      const index = tileIndexAt(e.clientX, e.clientY);
+      if (index < 0) return;
+      if (!canInspectBoard()) {
+        toast('Finish the current move first, then click a tile to inspect it.', 'warn');
+        return;
+      }
+      openTileDetails(index);
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      const index = tileIndexAt(e.clientX, e.clientY);
+      if (index !== ui.hoverTile) {
+        ui.hoverTile = index;
+        requestRender();
+      }
+      canvas.style.cursor = index >= 0 && canInspectBoard() ? 'pointer' : 'default';
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      if (ui.hoverTile !== -1) {
+        ui.hoverTile = -1;
+        requestRender();
+      }
+      canvas.style.cursor = 'default';
+    });
+  }
 
   // Responsive canvas
   window.addEventListener('resize', debounce(resizeBoard, 120));
@@ -3158,10 +3596,14 @@ function showLobbyForNewMatch() {
 function init() {
   loadSettings();
   if (![2, 3, 4].includes(ui.lobbyCount)) ui.lobbyCount = 4;
+  if (!SPEED_LEVELS.includes(settings.speed)) settings.speed = 1;
+  if (!FONT_LEVELS.includes(settings.fontScale)) settings.fontScale = 1;
   ensureUniqueLobbyColors();
   buildLobby();
   bindEvents();
   updateSoundButton();
+  applyFontScale();
+  applyPaceUI();
   refreshSaveHint();
   resizeBoard();
   updateUI();

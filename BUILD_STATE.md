@@ -1,6 +1,6 @@
 # Build State — Millionaire Race 2.5D
 
-This file records the build telemetry for the project: wall-clock time, token consumption, model/agent attribution and validation. It is a snapshot taken at the end of the build session.
+This file records the build telemetry for the project: wall-clock time, token consumption, model/agent attribution and validation. It now reflects the **review, pacing, tile-inspector and readability update** in addition to the original delivery.
 
 ---
 
@@ -25,9 +25,9 @@ This file records the build telemetry for the project: wall-clock time, token co
 | Field | Value |
 | --- | --- |
 | Started | **2026-11-01 10:22:40 PST** (`2026-11-01T10:22:40-08:00`) |
-| Telemetry captured | **2026-11-01 11:11:06 PST** (`2026-11-01T11:11:06-08:00`) |
-| Elapsed | **48 min 25 sec** |
-| Delivered | 1 complete playable game, 3 core source files, docs, license and screenshots |
+| First delivery | **2026-11-01 11:11:06 PST** — 48 min 25 sec |
+| Feature-update snapshot | **2026-11-01 12:00:59 PST** — **98 min 18 sec cumulative** |
+| Delivered | Complete playable game, three core source files, six screenshots, docs, license and build telemetry |
 
 ### Approximate build log
 
@@ -42,31 +42,32 @@ This file records the build telemetry for the project: wall-clock time, token co
 | 11:00 | 30-round simulation, targeted economy tests, mobile layout |
 | 11:06 | Final screenshots, README, license, build telemetry |
 | 11:11 | GitHub publication and Pages deployment |
+| 11:13–12:00 | v1.1: speed control, manual review/Continue, clickable tile inspector, text-size scaling, new settings modal, screenshots and re-publication |
 
-> Times are derived from the session record, screenshots and the telemetry capture point. The final documentation commit and final assistant message occurred slightly after the capture.
+> Times are derived from the session record, screenshots and the telemetry capture point. The final documentation commit and final assistant message occur slightly after the capture.
 
 ---
 
 ## Token consumption
 
-Session totals reported by OpenCode at **2026-11-01 11:11:06 PST**:
+Session totals reported by OpenCode. Two snapshots are shown so the original build and the follow-up update can be compared.
 
-| Token class | Count |
-| --- | ---: |
-| Input (uncached) | **407,174** |
-| Output | **89,097** |
-| Reasoning | **138,514** |
-| Cache read | **30,218,112** |
-| Cache write | **1,842** |
-| **Grand total (all classes)** | **30,854,739** |
+| Token class | At first delivery (11:11:06) | At feature snapshot (12:00:59) |
+| --- | ---: | ---: |
+| Input (uncached) | 407,174 | **568,437** |
+| Output | 89,097 | **132,455** |
+| Reasoning | 138,514 | **223,128** |
+| Cache read | 30,218,112 | **73,790,976** |
+| Cache write | 1,842 | **1,842** |
+| **Grand total (all classes)** | **30,854,739** | **74,716,838** |
 
-Derived views:
+Derived views at the feature snapshot:
 
 | View | Count |
 | --- | ---: |
-| Input + output | 496,271 |
-| Input + output + reasoning | 634,785 |
-| Cache traffic (read + write) | 30,219,954 |
+| Input + output | 700,892 |
+| Input + output + reasoning | 924,020 |
+| Cache traffic (read + write) | 73,792,818 |
 | Provider-reported session cost at capture | **$0.00** |
 
 ### Reading these numbers
@@ -74,7 +75,7 @@ Derived views:
 - **Cache read** dominates because the agent re-reads the growing conversation context on every turn; it is shown separately rather than hidden.
 - **Reasoning** tokens are the model's internal reasoning budget, reported by the provider.
 - The **grand total** is input + output + reasoning + cache read + cache write.
-- Counts were captured **before** this file, the README, the commit and the final reply were written. The live session total will be marginally higher; the 30.8M cache-read figure is the stable, meaningful total.
+- Counts were captured **before** this file's final write, the README edit, the commit, the push and the final reply. The live session total will be marginally higher.
 - Cost is exactly as returned by the session store at capture time (0.0); any provider-side billing is outside this record.
 
 ---
@@ -83,14 +84,23 @@ Derived views:
 
 | Item | Value |
 | --- | --- |
-| Core source lines | **4,689** across `index.html`, `style.css`, `script.js` |
-| HTML | 263 lines |
-| CSS | 1,207 lines |
-| JavaScript | 3,219 lines |
-| Screenshots | 3 (board, dice, lobby) |
+| Core source lines | **5,500** across `index.html`, `style.css`, `script.js` |
+| HTML | 359 lines |
+| CSS | 1,480 lines |
+| JavaScript | 3,661 lines |
+| Screenshots | 6 (board, review, tile card, settings, dice, lobby) |
 | Dependencies | None to install; Three.js + Cannon.js + Google Fonts via CDN |
 | Build step | None |
 | License | MIT |
+
+### v1.1 additions
+
+- **Movement speed** — 0.5×, 0.75×, 1×, 1.5×, 2×, 3×; scales pawn hops, after-GO pauses, AI thinking/action delays and review delays.
+- **Manual / Auto turn flow** — Manual (default) pauses after a human turn with a **Continue →** button, a REVIEW leaderboard badge and an autosaved review state. AI turns continue automatically.
+- **Clickable tile inspector** — canvas hit-testing with hover outline, pointer cursor and a large detail card (price, rent/yield, owner, tier, status, dynamic exposure and position notes).
+- **Text-size scaling** — A−/A+ and Table Settings, 100% / 110% / 125% / 140%; rem-based UI scale plus a proportional Canvas label boost. Header labels collapse to icons at 125%+ so the top bar stays on one row.
+- **Settings modal** — speed, turn flow, text size, rules link and tile-inspector hint; all preferences persist in `localStorage`.
+- **Keyboard** — `Space` / `Enter` continues a manual review; `R` rolls; `Esc` closes the new dialogs.
 
 ### Validation performed
 
@@ -100,7 +110,12 @@ Derived views:
 - ✅ Canvas 2D dice fallback verified with WebGL disabled.
 - ✅ Three full **120-turn / 30-round** games with random dice, cards, rent, taxes, lockouts and purchases; all ended correctly on the 30-round net-worth tiebreak.
 - ✅ Targeted checks: 50% auto-mortgage, bankruptcy asset release, last-tycoon win, GO salary + 10% dividends, tax loophole consumption, $1,000,000 victory, AI buy threshold (> $20,000 reserve), AI lockout threshold (> $30,000 cash), save/load round-trip.
-- ✅ Responsive lobby, rules, win and card modals; keyboard `R` / `Esc`.
+- ✅ **Pacing:** 0.5× step measured at ~421 ms vs ~124 ms at 2×.
+- ✅ **Manual review:** review phase, Continue button, REVIEW badge, Continue advances to the AI seat; Auto mode advances automatically.
+- ✅ **Inspector:** a real canvas click opens the correct tile card; inspector is blocked while dice/pawns are moving and during AI turns.
+- ✅ **Text scaling:** 110% keeps one header row; 125%/140% icon-collapse keeps one row; log text grew from 11.5 px to 16.1 px at 140%.
+- ✅ **Persistence:** review state survives save/load; settings (speed, turn flow, text size) survive reloads.
+- ✅ Responsive lobby, settings, tile, rules, win and card modals; keyboard `R` / `Space` / `Esc`.
 
 ---
 
@@ -108,10 +123,10 @@ Derived views:
 
 - **Built end-to-end with [OpenCode](https://opencode.ai)** — an open-source AI coding agent.
 - **Model: DeepSeek V4.1 Flash** via `opencode-go` (`deepseek-v4.1-flash`).
-- Design, game engine, Canvas renderer, physics integration, audio synthesis, copy, tests and documentation were produced in this single session.
+- Design, game engine, Canvas renderer, physics integration, audio synthesis, tile inspector, pacing system, copy, tests and documentation were produced in this single session.
 - Libraries: [Three.js](https://threejs.org) r152, [Cannon.js](https://schteppe.github.io/cannon.js/) 0.6.2, [Google Fonts](https://fonts.google.com) (Outfit, Playfair Display).
 - All game artwork is procedural (Canvas + emoji); no paid or third-party image assets were used.
 
 ---
 
-*Snapshot captured 2026-11-01 11:11:06 PST. Machine-readable mirror: [build-state.json](build-state.json).*
+*Snapshot captured 2026-11-01 12:00:59 PST. Machine-readable mirror: [build-state.json](build-state.json).*
