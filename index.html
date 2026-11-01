@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#070b10" />
+  <meta name="description" content="Millionaire Race 2.5D — a wealth and asset tycoon board game with 3D physics dice, a 2.5D canvas board, AI rivals and live net-worth battles." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Millionaire Race 2.5D — Wealth &amp; Asset Tycoon Studio" />
+  <meta property="og:description" content="Buy the skyline, collect rent and outplay AI tycoons in a 2.5D board game with real 3D physics dice. First to $1,000,000 net worth wins." />
+  <meta property="og:image" content="screenshot-board.jpg" />
+  <meta property="og:url" content="https://somphol.github.io/millionaire-race-2.5d/" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <title>Millionaire Race 2.5D — Wealth &amp; Asset Tycoon Studio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1017'/%3E%3Cpath d='M12 46V26l10 8 10-16 10 16 10-8v20z' fill='%23f2c53d'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="bg-aurora" aria-hidden="true"></div>
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <!-- ══════════════════ TOP BAR ══════════════════ -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <span>🏙️</span>
+      </div>
+      <div class="brand-copy">
+        <h1>Millionaire Race <em>2.5D</em></h1>
+        <p>Wealth &amp; Asset Tycoon Studio</p>
+      </div>
+    </div>
+
+    <div class="topbar-stats" aria-label="Match statistics">
+      <div class="stat">
+        <span>Round</span>
+        <strong id="roundLabel">— / 30</strong>
+      </div>
+      <div class="stat">
+        <span>Turn</span>
+        <strong id="turnLabel">—</strong>
+      </div>
+      <div class="stat stat-target">
+        <span>Victory Target</span>
+        <strong>$1,000,000</strong>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button class="icon-btn" id="soundBtn" type="button" title="Toggle sound" aria-label="Toggle sound" aria-pressed="true">🔊</button>
+      <button class="ghost-btn" id="rulesBtn" type="button" title="How to play">❓ Rules</button>
+      <button class="ghost-btn" id="saveBtn" type="button" title="Export match as JSON">💾 Save Match</button>
+      <button class="ghost-btn" id="loadBtn" type="button" title="Import a match JSON">📂 Load Match</button>
+      <button class="ghost-btn danger" id="newGameBtn" type="button" title="Start a new match">🔄 New Game</button>
+    </div>
+  </header>
+
+  <!-- ══════════════════ GAME SHELL ══════════════════ -->
+  <main class="game-shell">
+    <section class="board-stage" aria-label="Game board">
+      <div class="board-frame" id="boardFrame">
+        <canvas id="board" width="1000" height="1000" role="img" aria-label="Millionaire Race game board"></canvas>
+        <div class="board-vignette" aria-hidden="true"></div>
+      </div>
+
+      <!-- Control dock -->
+      <div class="dock" id="dock">
+        <div class="dock-status">
+          <div class="dock-player" id="dockPlayer">
+            <span class="dot" id="dockDot"></span>
+            <span id="dockName">Waiting for players</span>
+          </div>
+          <p class="dock-hint" id="dockHint">Configure your tycoons and start a match.</p>
+        </div>
+        <div class="dock-actions" id="dockActions">
+          <button class="btn btn-primary" id="rollBtn" type="button" hidden>🎲 Roll Dice</button>
+          <button class="btn btn-gold" id="buyBtn" type="button" hidden>Buy Asset</button>
+          <button class="btn btn-ghost" id="passBtn" type="button" hidden>Pass</button>
+          <button class="btn btn-gold" id="lockoutPayBtn" type="button" hidden>Pay $10,000</button>
+          <button class="btn btn-ghost" id="lockoutSkipBtn" type="button" hidden>Lose Turn</button>
+          <button class="btn btn-primary" id="againBtn" type="button" hidden>🏆 New Match</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="sidebar" aria-label="Match sidebar">
+      <section class="panel leaderboard-panel">
+        <div class="panel-head">
+          <h2>Net Worth Leaderboard</h2>
+          <span class="pill">Live</span>
+        </div>
+        <div class="leaderboard" id="leaderboard">
+          <p class="empty-note">Players will appear here.</p>
+        </div>
+      </section>
+
+      <section class="panel log-panel">
+        <div class="panel-head">
+          <h2>Match Ledger</h2>
+          <button class="mini-btn" id="clearLogBtn" type="button" title="Clear the visible log">Clear</button>
+        </div>
+        <div class="log" id="log" aria-live="polite">
+          <p class="empty-note">The financial chronicle begins…</p>
+        </div>
+      </section>
+
+      <section class="panel legend-panel">
+        <div class="panel-head"><h2>Quick Guide</h2></div>
+        <ul class="legend">
+          <li><span class="swatch-dot go"></span><b>GO</b> +$20K salary + 10% stock dividends</li>
+          <li><span class="swatch-dot asset"></span><b>Assets</b> buy, collect rent, build net worth</li>
+          <li><span class="swatch-dot chance"></span><b>Cards</b> market swings &amp; opportunities</li>
+          <li><span class="swatch-dot tax"></span><b>Taxes</b> drain liquid cash — keep reserves</li>
+        </ul>
+      </section>
+    </aside>
+  </main>
+
+  <!-- ══════════════════ LOBBY ══════════════════ -->
+  <div class="modal-overlay show" id="lobby" role="dialog" aria-modal="true" aria-labelledby="lobbyTitle">
+    <div class="modal lobby-modal">
+      <div class="lobby-hero">
+        <div class="hero-badge">2.5D BOARD GAME</div>
+        <h2 id="lobbyTitle">Millionaire Race</h2>
+        <p class="lobby-sub">Wealth &amp; Asset Tycoon Studio</p>
+        <p class="lobby-lede">Buy the skyline. Collect the rent. Reach <b>$1,000,000</b> net worth before your rivals — or own the most after 30 rounds.</p>
+      </div>
+
+      <div class="lobby-config">
+        <div class="player-count-row">
+          <span class="label">Tycoons</span>
+          <div class="segmented" id="countPicker" role="group" aria-label="Number of players">
+            <button type="button" data-count="2">2</button>
+            <button type="button" data-count="3">3</button>
+            <button type="button" data-count="4" class="active">4</button>
+          </div>
+          <span class="lobby-note">Mix humans &amp; AI rivals</span>
+        </div>
+
+        <div class="lobby-players" id="lobbyPlayers">
+          <!-- rows injected by script.js -->
+        </div>
+      </div>
+
+      <div class="lobby-footer">
+        <button class="text-btn" id="continueBtn" type="button" hidden>↩ Continue saved match</button>
+        <div class="lobby-footer-actions">
+          <span class="save-hint" id="saveHint" hidden>Saved match found</span>
+          <button class="btn btn-gold btn-lg" id="startBtn" type="button">Start the Race →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════ DICE MODAL ══════════════════ -->
+  <div class="modal-overlay" id="diceModal" role="dialog" aria-modal="true" aria-labelledby="diceTitle">
+    <div class="modal dice-modal">
+      <div class="dice-head">
+        <div>
+          <p class="eyebrow">Physics Roll</p>
+          <h2 id="diceTitle">Rolling the dice</h2>
+        </div>
+        <button class="mini-btn" id="diceSkipBtn" type="button">Skip ⏭</button>
+      </div>
+      <div class="dice-stage" id="diceStage">
+        <div class="dice-loading" id="diceLoading">
+          <span class="spinner"></span>
+          <p>Loading 3D physics…</p>
+        </div>
+      </div>
+      <div class="dice-readout">
+        <div class="die-chip" id="dieChip1">—</div>
+        <span class="plus">+</span>
+        <div class="die-chip" id="dieChip2">—</div>
+        <span class="equals">=</span>
+        <div class="die-total" id="dieTotal">—</div>
+      </div>
+      <p class="dice-caption" id="diceCaption">Two dice. Twelve steps. One fortune.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════ CARD MODAL ══════════════════ -->
+  <div class="modal-overlay" id="cardModal" role="dialog" aria-modal="true" aria-labelledby="cardTitle">
+    <div class="modal card-modal">
+      <div class="card-glow" aria-hidden="true"></div>
+      <p class="eyebrow" id="cardDeckLabel">Opportunity Chest</p>
+      <div class="card-icon" id="cardIcon">🎁</div>
+      <h2 id="cardTitle">Card title</h2>
+      <p class="card-text" id="cardText"></p>
+      <div class="card-effect" id="cardEffect">+$0</div>
+      <button class="btn btn-gold btn-lg" id="cardContinueBtn" type="button">Collect &amp; Continue</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════ WIN MODAL ══════════════════ -->
+  <div class="modal-overlay" id="winModal" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <div class="modal win-modal">
+      <div class="confetti" id="confetti" aria-hidden="true"></div>
+      <div class="trophy" aria-hidden="true">🏆</div>
+      <p class="eyebrow" id="winEyebrow">Victory</p>
+      <h2 id="winTitle">Winner</h2>
+      <p class="win-reason" id="winReason"></p>
+      <div class="win-stats" id="winStats"></div>
+      <div class="win-actions">
+        <button class="btn btn-gold btn-lg" id="winAgainBtn" type="button">Play Again</button>
+        <button class="btn btn-ghost" id="winCloseBtn" type="button">Inspect Board</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════ RULES MODAL ══════════════════ -->
+  <div class="modal-overlay" id="rulesModal" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
+    <div class="modal rules-modal">
+      <div class="dice-head">
+        <div>
+          <p class="eyebrow">The Playbook</p>
+          <h2 id="rulesTitle">How to win</h2>
+        </div>
+        <button class="mini-btn" id="rulesCloseBtn" type="button">Close</button>
+      </div>
+      <div class="rules-grid">
+        <div class="rule-card">
+          <h3>🏆 Victory</h3>
+          <p>First player to reach <b>$1,000,000</b> total net worth at the end of a turn wins instantly. If nobody does, the highest net worth after <b>30 rounds</b> wins.</p>
+        </div>
+        <div class="rule-card">
+          <h3>💵 Economy</h3>
+          <p>Everyone starts with <b>$100,000</b>. Net worth = cash + the buy value of every asset you own. Passing or landing on GO pays <b>$20,000</b> plus a <b>10% dividend</b> on owned stocks.</p>
+        </div>
+        <div class="rule-card">
+          <h3>🏙️ Assets &amp; Rent</h3>
+          <p>Land on an unowned asset to buy it or pass. Land on a rival's asset and pay rent from cash. If cash is short, assets auto-mortgage at <b>50%</b> of purchase value.</p>
+        </div>
+        <div class="rule-card">
+          <h3>💀 Bankruptcy</h3>
+          <p>If you cannot cover a debt and have no assets left to mortgage, you are eliminated and your assets return to the bank.</p>
+        </div>
+        <div class="rule-card">
+          <h3>🤖 AI Rivals</h3>
+          <p>Bots buy an asset when remaining cash stays above <b>$20,000</b>, and pay the <b>$10,000</b> audit-lockout exit fee whenever their cash is above <b>$30,000</b>.</p>
+        </div>
+        <div class="rule-card">
+          <h3>🔒 Lockout</h3>
+          <p>Tile 18 sends you to the Luxury Club and costs your next turn — unless you pay the $10,000 exit fee. Tax loophole cards cancel your next tax bill.</p>
+        </div>
+      </div>
+      <div class="rules-foot">Tip: press <kbd>R</kbd> to roll, <kbd>Esc</kbd> to close dialogs.</div>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toasts" aria-live="assertive"></div>
+  <input type="file" id="fileInput" accept="application/json,.json" hidden />
+
+  <!-- 3D physics + rendering libraries (CDN, with graceful 2D fallback) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cannon@0.6.2/build/cannon.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

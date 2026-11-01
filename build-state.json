@@ -1,0 +1,83 @@
+{
+  "project": "Millionaire Race 2.5D — Wealth & Asset Tycoon Studio",
+  "repository": "https://github.com/somphol/millionaire-race-2.5d",
+  "homepage": "https://somphol.github.io/millionaire-race-2.5d/",
+  "session": {
+    "id": "ses_e67a68f85ffe5oCsIETmyBfVZY",
+    "agent": "OpenCode",
+    "agent_url": "https://opencode.ai",
+    "model": "DeepSeek V4.1 Flash",
+    "model_id": "deepseek-v4.1-flash",
+    "provider": "opencode-go",
+    "working_directory": "/Users/somphol",
+    "project_directory": "~/Projects/millionaire-race-2.5d"
+  },
+  "timing": {
+    "started_at": "2026-11-01T10:22:40-08:00",
+    "telemetry_captured_at": "2026-11-01T11:11:06-08:00",
+    "elapsed_seconds": 2905,
+    "elapsed_human": "48m 25s"
+  },
+  "tokens": {
+    "input": 407174,
+    "output": 89097,
+    "reasoning": 138514,
+    "cache_read": 30218112,
+    "cache_write": 1842,
+    "total_all_classes": 30854739,
+    "input_plus_output": 496271,
+    "input_output_reasoning": 634785,
+    "cache_traffic": 30219954,
+    "provider_reported_cost_usd": 0.0,
+    "note": "Snapshot captured before the documentation commit and final assistant message; live totals will be marginally higher. Cache reads dominate because the full conversation context is re-read each turn."
+  },
+  "delivery": {
+    "core_files": [
+      "index.html",
+      "style.css",
+      "script.js"
+    ],
+    "screenshots": [
+      "screenshot-board.jpg",
+      "screenshot-dice.png",
+      "screenshot-lobby.png"
+    ],
+    "line_counts": {
+      "index.html": 263,
+      "style.css": 1207,
+      "script.js": 3219,
+      "core_total": 4689
+    },
+    "build_step": false,
+    "install_step": false,
+    "dependencies": [
+      "three@0.152.2 (CDN)",
+      "cannon@0.6.2 (CDN)",
+      "Google Fonts: Outfit, Playfair Display"
+    ],
+    "license": "MIT"
+  },
+  "validation": {
+    "syntax_check": "pass (JavaScriptCore)",
+    "headless_chrome": "pass at 1920x1080, 1440x900 and 390x844; no console errors",
+    "webgl_dice": "pass (SwiftShader WebGL; rendered top faces match dice chips)",
+    "canvas_dice_fallback": "pass (WebGL disabled)",
+    "full_games": "3 x 120-turn / 30-round random simulations, all completed correctly",
+    "targeted_logic": [
+      "auto-mortgage at 50%",
+      "bankruptcy asset release / last-tycoon win",
+      "GO salary + 10% stock dividends",
+      "tax loophole consumption",
+      "$1,000,000 net-worth victory",
+      "AI buy threshold (cash - price > 20000)",
+      "AI lockout threshold (cash > 30000)",
+      "localStorage save/load round-trip"
+    ]
+  },
+  "credits": {
+    "built_with": "OpenCode",
+    "model": "DeepSeek V4.1 Flash",
+    "provider": "opencode-go",
+    "asset_note": "All board artwork is procedural Canvas + emoji; no paid image assets."
+  }
+}
