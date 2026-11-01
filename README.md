@@ -4,6 +4,12 @@
 
 A complete, production-ready 2.5D wealth-building board game for the browser. Buy the skyline, collect rent, outplay AI tycoons, and be the first to a **$1,000,000** net worth.
 
+<p align="center">
+  <a href="https://somphol.github.io/millionaire-race-2.5d/"><b>▶ Play the live demo</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/somphol/millionaire-race-2.5d">View source on GitHub</a>
+</p>
+
 ![Millionaire Race 2.5D board](screenshot-board.jpg)
 
 <p align="center">
@@ -20,6 +26,8 @@ A complete, production-ready 2.5D wealth-building board game for the browser. Bu
 ---
 
 ## Play
+
+**▶ Play online:** https://somphol.github.io/millionaire-race-2.5d/
 
 No build step. No dependencies to install.
 
@@ -195,6 +203,8 @@ millionaire-race-2.5d/
 ### Try the demo
 
 Append `?demo=1` to the URL to auto-start a four-player AI match. Add `&fast=1` to pre-populate a lived-in board with assets, cash and a mid-game round. These hooks are handy for screenshots and smoke tests.
+
+Try it on the live site: https://somphol.github.io/millionaire-race-2.5d/?demo=1&fast=1
 
 ---
 
