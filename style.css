@@ -929,6 +929,7 @@ button { touch-action: manipulation; }
   padding: 16px 26px 22px;
   flex-wrap: wrap;
 }
+.lobby-footer-left { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .lobby-footer-actions { display: flex; align-items: center; gap: 14px; margin-left: auto; }
 .save-hint {
   font-size: 0.6562rem;

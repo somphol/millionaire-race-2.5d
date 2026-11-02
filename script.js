@@ -623,6 +623,7 @@ function payLockoutFee(player) {
   Sound.coin();
   state.phase = 'awaitRoll';
   updateUI();
+  saveLocal();
   if (player.isAI || settings.autoAdvance) {
     scheduleAutoRoll(ui.epoch, player.isAI ? paced(750) : 300);
   }
@@ -633,7 +634,14 @@ function skipLockedTurn(player) {
   player.lockout = false;
   addLog(`${player.name} loses this turn to the audit lockout.`, 'bad');
   toast(`${player.name} lost a turn`, 'bad');
-  endTurnSoon(420);
+  if (!settings.autoAdvance && !player.isAI) {
+    // Persist the forfeited turn as a review state so a reload cannot replay it.
+    state.phase = 'review';
+    updateUI();
+    saveLocal();
+  } else {
+    finishTurn();
+  }
 }
 
 async function rollDiceForCurrent() {
@@ -681,8 +689,8 @@ async function movePlayerBy(player, steps, epoch) {
 
 function animatePawnStep(player, fromPos, toPos) {
   return new Promise((resolve) => {
-    const from = tileCenter(fromPos);
-    const to = tileCenter(toPos);
+    const from = lanePosition(fromPos);
+    const to = lanePosition(toPos);
     const dur = Math.max(60, Math.round(settings.stepMs || 200));
     ui.anim = { playerId: player.id, from, to, fromPos, toPos, start: performance.now(), dur };
     setTimeout(() => {
@@ -840,8 +848,8 @@ function resolveLockout(player) {
   toast('Audit Lockout — sent to Luxury Club', 'bad');
   Sound.bad();
 
-  const from = tileCenter(fromPos);
-  const to = tileCenter(6);
+  const from = lanePosition(fromPos);
+  const to = lanePosition(6);
   const dur = Math.max(260, Math.round(560 / (settings.speed || 1)));
   ui.anim = { playerId: player.id, from, to, fromPos, toPos: 6, start: performance.now(), dur };
   updateUI();
@@ -1411,6 +1419,12 @@ function updateFullscreenButton() {
   btn.setAttribute('aria-pressed', String(active));
   btn.title = active ? 'Exit fullscreen (F)' : 'Fullscreen (F)';
   btn.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen');
+  const chip = $('#fullscreenChip');
+  if (chip) chip.textContent = active ? '⛶ Exit fullscreen' : '⛶ Fullscreen';
+  const lobbyBtn = $('#lobbyFullscreenBtn');
+  if (lobbyBtn) lobbyBtn.textContent = active ? '⛶ Exit fullscreen' : '⛶ Play fullscreen';
+  const settingsBtn = $('#settingsFullscreenBtn');
+  if (settingsBtn) settingsBtn.textContent = active ? 'Exit fullscreen' : 'Enter fullscreen';
 }
 
 async function toggleFullscreen() {
@@ -1789,7 +1803,7 @@ function closeAllModals() {
 /* ═══════════════ 13 · BOARD GEOMETRY ═══════════════ */
 
 const BOARD_SIZE = 1000;
-const BOARD_PAD = 26;
+const BOARD_PAD = 88;
 const CELL = (BOARD_SIZE - BOARD_PAD * 2) / 7;
 const EXTRUDE = 9;
 
@@ -1822,6 +1836,32 @@ function centerRect() {
     w: CELL * 5,
     h: CELL * 5
   };
+}
+
+const LANE_INSET = 55;
+
+function lanePosition(index) {
+  const r = tileRect(index);
+  if (index === 0) return { x: BOARD_SIZE - LANE_INSET, y: BOARD_SIZE - LANE_INSET, side: 'corner' };
+  if (index === 6) return { x: LANE_INSET, y: BOARD_SIZE - LANE_INSET, side: 'corner' };
+  if (index === 12) return { x: LANE_INSET, y: LANE_INSET, side: 'corner' };
+  if (index === 18) return { x: BOARD_SIZE - LANE_INSET, y: LANE_INSET, side: 'corner' };
+  if (index < 6) return { x: r.x + r.w / 2, y: BOARD_SIZE - LANE_INSET, side: 'bottom' };
+  if (index < 12) return { x: LANE_INSET, y: r.y + r.h / 2, side: 'left' };
+  if (index < 18) return { x: r.x + r.w / 2, y: LANE_INSET, side: 'top' };
+  return { x: BOARD_SIZE - LANE_INSET, y: r.y + r.h / 2, side: 'right' };
+}
+
+function laneAnchor(index) {
+  const r = tileRect(index);
+  if (index === 0) return { x: r.x + r.w, y: r.y + r.h };
+  if (index === 6) return { x: r.x, y: r.y + r.h };
+  if (index === 12) return { x: r.x, y: r.y };
+  if (index === 18) return { x: r.x + r.w, y: r.y };
+  if (index < 6) return { x: r.x + r.w / 2, y: r.y + r.h };
+  if (index < 12) return { x: r.x, y: r.y + r.h / 2 };
+  if (index < 18) return { x: r.x + r.w / 2, y: r.y };
+  return { x: r.x + r.w, y: r.y + r.h / 2 };
 }
 
 /* ═══════════════ 14 · CANVAS RENDERER ═══════════════ */
@@ -1931,6 +1971,43 @@ function truncateText(text, maxWidth) {
   return out + '…';
 }
 
+function drawLaneBase() {
+  // Dark outer running lane between the frame and the tile ring.
+  ctx.save();
+  roundRectPath(48, 48, BOARD_SIZE - 96, BOARD_SIZE - 96, 26);
+  ctx.strokeStyle = 'rgba(8, 14, 20, 0.64)';
+  ctx.lineWidth = 72;
+  ctx.stroke();
+  ctx.restore();
+
+  // Gold rail running through the lane tokens.
+  ctx.save();
+  roundRectPath(LANE_INSET, LANE_INSET, BOARD_SIZE - LANE_INSET * 2, BOARD_SIZE - LANE_INSET * 2, 22);
+  ctx.strokeStyle = 'rgba(242, 197, 61, 0.18)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.restore();
+
+  // Connector lines from each tile to its lane bay, plus a bay marker.
+  ctx.save();
+  for (let i = 0; i < TILE_COUNT; i++) {
+    const p = lanePosition(i);
+    const a = laneAnchor(i);
+    ctx.strokeStyle = 'rgba(242, 197, 61, 0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 2.4, 0, TAU);
+    ctx.fillStyle = 'rgba(242, 197, 61, 0.26)';
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawBoard(now) {
   if (!ctx) return;
   ctx.clearRect(0, 0, BOARD_SIZE, BOARD_SIZE);
@@ -1963,6 +2040,8 @@ function drawBoard(now) {
     ctx.stroke();
   }
   ctx.restore();
+
+  drawLaneBase();
 
   // ── outer frame
   ctx.save();
@@ -2636,6 +2715,25 @@ function drawIsoTower(cx, baseY, width, height, color) {
 
 /* ───────────── 14b · Pawns ───────────── */
 
+function drawLaneCurrentGlow(x, y, color, now) {
+  const pulse = 0.5 + 0.5 * Math.sin(now / 380);
+  ctx.save();
+  const g = ctx.createRadialGradient(x, y - 10, 2, x, y - 10, 26);
+  g.addColorStop(0, hexToRgba(color, 0.42 + pulse * 0.18));
+  g.addColorStop(0.55, hexToRgba(color, 0.12));
+  g.addColorStop(1, hexToRgba(color, 0));
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y - 10, 26, 0, TAU);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(x, y, 17, 6, 0, 0, TAU);
+  ctx.strokeStyle = hexToRgba(color, 0.5 + pulse * 0.3);
+  ctx.lineWidth = 1.3;
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawPawns(now) {
   if (!state) return;
 
@@ -2648,19 +2746,22 @@ function drawPawns(now) {
   });
 
   groups.forEach((players, pos) => {
-    const { x, y, w, h } = tileRect(pos, 3);
-    const cx = x + w / 2;
-    const baseY = y + h - 26 - tileLift(pos);
+    const lane = lanePosition(pos);
     const offsets = players.length === 1
       ? [[0, 0]]
       : players.length === 2
-        ? [[-9, 0], [9, 0]]
+        ? [[-10, 0], [10, 0]]
         : players.length === 3
-          ? [[-9, -5], [9, -5], [0, 5]]
-          : [[-9, -5], [9, -5], [-9, 5], [9, 5]];
+          ? [[-10, -6], [10, -6], [0, 6]]
+          : [[-10, -6], [10, -6], [-10, 6], [10, 6]];
+
     players.forEach((p, i) => {
       const [ox, oy] = offsets[i] || [0, 0];
-      drawPawn(cx + ox, baseY + oy, PLAYER_COLORS[p.color], p.name, 0.66);
+      const x = lane.x + ox;
+      const y = lane.y + oy;
+      const isCurrent = state.phase !== 'ended' && p.id === state.current;
+      if (isCurrent) drawLaneCurrentGlow(x, y, PLAYER_COLORS[p.color].hex, now);
+      drawPawn(x, y, PLAYER_COLORS[p.color], p.name, 0.95);
     });
   });
 
@@ -2670,12 +2771,12 @@ function drawPawns(now) {
     const t = clamp((now - ui.anim.start) / ui.anim.dur, 0, 1);
     const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     const px = lerp(ui.anim.from.x, ui.anim.to.x, e);
-    const fromLift = ui.anim.fromPos != null ? tileLift(ui.anim.fromPos) : 0;
-    const toLift = ui.anim.toPos != null ? tileLift(ui.anim.toPos) : 0;
-    const lift = lerp(fromLift, toLift, e);
-    const py = lerp(ui.anim.from.y, ui.anim.to.y, e) + 38 - lift;
-    const hop = Math.sin(Math.PI * t) * 13;
-    drawPawn(px, py - hop, PLAYER_COLORS[player.color], player.name, 0.72 + Math.sin(Math.PI * t) * 0.08);
+    const py = lerp(ui.anim.from.y, ui.anim.to.y, e);
+    const hop = Math.sin(Math.PI * t) * 12;
+    if (state.phase !== 'ended' && player.id === state.current) {
+      drawLaneCurrentGlow(px, py - hop, PLAYER_COLORS[player.color].hex, now);
+    }
+    drawPawn(px, py - hop, PLAYER_COLORS[player.color], player.name, 1.0 + Math.sin(Math.PI * t) * 0.06);
   }
 }
 
@@ -2798,6 +2899,11 @@ function tileIndexAt(clientX, clientY) {
   for (let i = 0; i < TILE_COUNT; i++) {
     const r = tileRect(i);
     if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return i;
+  }
+  // External lane tokens map back to their tile.
+  for (let i = 0; i < TILE_COUNT; i++) {
+    const p = lanePosition(i);
+    if (Math.hypot(x - p.x, y - p.y) <= 22) return i;
   }
   return -1;
 }
@@ -3690,6 +3796,22 @@ function bindEvents() {
   });
 
   $('#fullscreenBtn') && $('#fullscreenBtn').addEventListener('click', () => {
+    Sound.init();
+    Sound.click();
+    toggleFullscreen();
+  });
+  $('#fullscreenChip') && $('#fullscreenChip').addEventListener('click', () => {
+    Sound.init();
+    Sound.click();
+    toggleFullscreen();
+  });
+  $('#lobbyFullscreenBtn') && $('#lobbyFullscreenBtn').addEventListener('click', () => {
+    Sound.init();
+    Sound.click();
+    toggleFullscreen();
+  });
+  $('#settingsFullscreenBtn') && $('#settingsFullscreenBtn').addEventListener('click', () => {
+    closeModal('settingsModal');
     Sound.init();
     Sound.click();
     toggleFullscreen();

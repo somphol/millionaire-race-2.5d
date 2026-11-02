@@ -28,7 +28,7 @@ This file records the build telemetry for the project: wall-clock time, token co
 | First delivery | **2026-11-01 11:11:06 PST** — 48 min 25 sec |
 | v1.1 feature snapshot | **2026-11-01 12:00:59 PST** — **98 min 18 sec cumulative** |
 | Compact dice tray | **2026-11-01 15:04 PST** |
-| Latest feature snapshot | **2026-11-01 16:12:11 PST** — session spans multiple sittings; wall clock includes idle gaps |
+| Latest feature snapshot | **2026-11-01 17:08:32 PST** — session spans multiple sittings; wall clock includes idle gaps |
 | Delivered | Complete playable game, three core source files, six screenshots, docs, license and build telemetry |
 
 ### Approximate build log
@@ -47,6 +47,7 @@ This file records the build telemetry for the project: wall-clock time, token co
 | 11:13–12:00 | v1.1: speed control, manual review/Continue, tile inspector, text scaling, settings modal |
 | 14:57–15:04 | Compact floating dice tray; board stays visible; mobile below-board placement |
 | 15:15–16:12 | Pawn-step slider; sidebar/ledger cap and current-round filter; raised occupied tiles; total-only dice readout; fullscreen; Auto auto-roll; affordability guidance; configurable max rounds; screenshots and re-publication |
+| 16:15–17:08 | External pawn lane with larger tokens; labeled fullscreen controls in lobby/dock/settings; lockout pay/forfeit persistence; final screenshots and re-publication |
 
 > Times are derived from the session record, screenshots and the telemetry capture point. The final documentation commit and final assistant message occur slightly after the capture.
 
@@ -56,22 +57,22 @@ This file records the build telemetry for the project: wall-clock time, token co
 
 Session totals reported by OpenCode. Four snapshots are shown so the original build, the v1.1 update, the compact-tray tweak and the latest feature pass can be compared.
 
-| Token class | First delivery (11:11:06) | v1.1 (12:00:59) | Compact tray (15:04) | Latest (16:12:11) |
+| Token class | First delivery (11:11:06) | v1.1 (12:00:59) | Compact tray (15:04) | Latest (17:08:32) |
 | --- | ---: | ---: | ---: | ---: |
-| Input (uncached) | 407,174 | 568,437 | 1,506,897 | **1,744,332** |
-| Output | 89,097 | 132,455 | 142,708 | **191,647** |
-| Reasoning | 138,514 | 223,128 | 249,664 | **391,166** |
-| Cache read | 30,218,112 | 73,790,976 | 87,262,080 | **172,472,832** |
+| Input (uncached) | 407,174 | 568,437 | 1,506,897 | **1,868,774** |
+| Output | 89,097 | 132,455 | 142,708 | **214,487** |
+| Reasoning | 138,514 | 223,128 | 249,664 | **469,487** |
+| Cache read | 30,218,112 | 73,790,976 | 87,262,080 | **214,478,464** |
 | Cache write | 1,842 | 1,842 | 1,842 | **1,842** |
-| **Grand total (all classes)** | **30,854,739** | **74,716,838** | **89,163,191** | **174,801,819** |
+| **Grand total (all classes)** | **30,854,739** | **74,716,838** | **89,163,191** | **217,033,054** |
 
 Derived views at the latest snapshot:
 
 | View | Count |
 | --- | ---: |
-| Input + output | 1,935,979 |
-| Input + output + reasoning | 2,327,145 |
-| Cache traffic (read + write) | 172,474,674 |
+| Input + output | 2,083,261 |
+| Input + output + reasoning | 2,552,748 |
+| Cache traffic (read + write) | 214,480,306 |
 | Provider-reported session cost | **$0.00** |
 
 ### Reading these numbers
@@ -89,10 +90,10 @@ Derived views at the latest snapshot:
 
 | Item | Value |
 | --- | --- |
-| Core source lines | **6,021** across `index.html`, `style.css`, `script.js` |
-| HTML | 381 lines |
-| CSS | 1,647 lines |
-| JavaScript | 3,993 lines |
+| Core source lines | **6,156** across `index.html`, `style.css`, `script.js` |
+| HTML | 393 lines |
+| CSS | 1,648 lines |
+| JavaScript | 4,115 lines |
 | Screenshots | 6 (board, review, tile card, settings, dice, lobby) |
 | Dependencies | None to install; Three.js + Cannon.js + Google Fonts via CDN |
 | Build step | None |
@@ -104,14 +105,15 @@ Derived views at the latest snapshot:
 - **Pawn step time** — dedicated 80–1200 ms slider (default 200 ms) for the box-to-box hop, independent of table speed.
 - **Manual / Auto turn flow** — Manual pauses after a human turn with **Continue →**, a REVIEW badge and an autosaved review state. **Auto rolls the human dice for you** and advances automatically; switching Auto mid-review resumes immediately.
 - **Configurable match length** — **Max rounds** in the lobby (5–99, default 30), stored in the match save and used by the header, board footer, round-limit win and log round clamp.
-- **Raised occupied tiles** — boxes with players lift 12 logical pixels with a taller side, shadow, player-colored rim and occupant initial badges; hit-testing follows the raised tile.
-- **Fullscreen** — header ⤢ button and **F** shortcut; the Fullscreen API state updates the icon and `aria-pressed`.
+- **Raised occupied tiles + external lane** — boxes with players lift 12 logical pixels with a taller side, shadow, player-colored rim and occupant initials; every pawn also sits on a 72px outer rail aligned to its tile, with a current-player glow and click hit-testing.
+- **Fullscreen** — labeled entry points in the lobby, dock and Table Settings, plus the header ⤢ and **F** shortcut; the Fullscreen API state updates labels and `aria-pressed`.
 - **Current-round ledger** — the Match Ledger shows only the current round (R chip), capped at 280 px and scrollable; the Quick Guide collapses at 125%+ so the sidebar cannot overlap it.
 - **Clickable tile inspector** — canvas hit-testing with hover outline, pointer cursor and a large detail card (price, rent/yield, owner, tier, status, cash shortfall, crash exposure, tax bill and current position).
 - **Cash vs net worth guidance** — purchases use liquid cash; a short purchase disables Buy, offers Pass and explains the exact shortfall and that owned assets are not spendable. Auto-mortgage is only for forced rent/tax payments.
 - **Dice total only** — the compact dice tray and centre board display only the total steps; individual die values are not shown in text, and the log records only the total.
 - **Text-size scaling** — A−/A+ and Table Settings, 100% / 110% / 125% / 140%; rem UI scale plus a proportional Canvas label boost. Header labels collapse to icons at 125%+; Rules is icon-only so the full action set stays on one row.
-- **Settings modal** — table speed, pawn step, turn flow, text size, rules link and inspector hint; all preferences persist in `localStorage`.
+- **Saved lockout decision** — paying the $10,000 exit fee or forfeiting the turn is written to the save immediately; a reload cannot replay a lost turn or charge the fee twice.
+- **Settings modal** — table speed, pawn step, turn flow, text size, display/fullscreen, rules link and inspector hint; all preferences persist in `localStorage`.
 - **Keyboard** — `R` rolls, `Space`/`Enter` continues a manual review, `F` toggles fullscreen, `Esc` closes dialogs.
 
 ### Validation performed
@@ -132,6 +134,9 @@ Derived views at the latest snapshot:
 - ✅ **Ledger:** current round only; at 140% with many entries the panel is 280 px, scrolls internally and does not overlap the leaderboard; Quick Guide collapses at 125%+.
 - ✅ **Header:** the full action set (fullscreen, icon-only Rules, Save/Load/New) stays on one row at 110% and 140%.
 - ✅ **Text scaling:** 110% keeps one header row; 125%/140% icon-collapse keeps one row; log text grew from 11.5 px to 16.1 px at 140%.
+- ✅ **External lane:** 72 px outer rail, tokens aligned to all 24 tiles, current-player glow, lane hit-test returns the correct tile.
+- ✅ **Lockout persistence:** paying saved $90,000 cash and cleared lockout across reload (no second fee); losing persisted a review state that could not be replayed as a normal turn.
+- ✅ **Fullscreen:** labeled lobby/dock/settings controls and API toggle; icon and `aria-pressed` updated.
 - ✅ **Management:** inspector blocked while dice/pawns are moving and during AI turns; review state survives reload; preferences survive reload.
 - ✅ Responsive lobby, settings, tile, rules, win and card modals.
 
@@ -147,4 +152,4 @@ Derived views at the latest snapshot:
 
 ---
 
-*Snapshot captured 2026-11-01 16:12:11 PST. Machine-readable mirror: [build-state.json](build-state.json).*
+*Snapshot captured 2026-11-01 17:08:32 PST. Machine-readable mirror: [build-state.json](build-state.json).*

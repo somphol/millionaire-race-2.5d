@@ -10,7 +10,7 @@ A complete, production-ready 2.5D wealth-building board game for the browser. Bu
   <a href="https://github.com/somphol/millionaire-race-2.5d">View source on GitHub</a>
 </p>
 
-![Millionaire Race 2.5D board](screenshot-board.jpg)
+![Millionaire Race 2.5D board with external pawn lane](screenshot-board.jpg)
 
 <p align="center">
   <img src="screenshot-tile.png" width="32%" alt="Tile detail card showing a cash shortfall and the net-worth explanation" />
@@ -46,7 +46,7 @@ The board, economy, AI and persistence are fully offline-capable. The 3D dice us
 ## Highlights
 
 - **2–4 player lobby** with editable names, red/blue/green/yellow color pickers and Human / AI Bot toggles.
-- **Top-down 2.5D Canvas board** — extruded tiles, isometric property towers, ownership flags, asset-tier stars, live pawns with hop animation, glowing current-tile ring and an animated city skyline. Tiles holding players **rise as 3D platforms** with a taller side, shadow, player-colored rim and occupant badges.
+- **Top-down 2.5D Canvas board** — extruded tiles, isometric property towers, ownership flags, asset-tier stars, a wide **external pawn lane**, glowing current-tile ring and an animated city skyline. Tiles holding players **rise as 3D platforms** with a taller side, shadow, player-colored rim and occupant badges. Pawns sit on the outer lane, aligned with their tile, making every position easy to scan; the current player's lane pawn glows.
 - **Review-friendly pacing** — table speed from **0.5× to 3×** for AI/turn timing, a dedicated **80–1200 ms pawn-step slider** for the box-to-box hop, plus **Manual / Auto turn flow**. Manual pauses after your turn with a **Continue** button so you can study the tile, rent and balance. **Auto rolls your dice for you** and advances automatically.
 - **Tile inspector** — click or tap **any board box** for a large detail card with price, rent/yield, owner, tier, mortgage status, live position info and dynamic effect notes.
 - **Readable interface** — **A− / A+ text scaling** (100%, 110%, 125%, 140%) for the lobby, sidebar, dialogs, logs and board labels, persisted between sessions.
@@ -57,8 +57,8 @@ The board, economy, AI and persistence are fully offline-capable. The 3D dice us
 - **Win conditions** — instant victory at $1,000,000 net worth at the end of a turn; otherwise the highest net worth after the configured match length.
 - **Configurable match length** — **5–99 rounds** in the lobby (default 30); the $1M instant win always applies.
 - **Current-round ledger** — the Match Ledger shows only the current round in a fixed-height, scrollable panel, with a round chip and the last actions front and centre.
-- **Fullscreen** — the header **⤢** button or the **F** key enters/leaves browser fullscreen.
-- **Persistence** — autosave after every turn to `localStorage`, plus JSON export (`millionaire_race_save.json`) and import.
+- **Fullscreen** — enter from the lobby **Play fullscreen** link, the **⛶ Fullscreen** dock chip, **Table Settings → Display**, the header **⤢** button, or **F**.
+- **Persistence** — autosave after every turn to `localStorage`, plus JSON export (`millionaire_race_save.json`) and import. Paying or losing the audit-lockout decision is saved immediately, so a reload cannot replay a forfeited turn or charge the $10,000 fee twice.
 - **Synthesized audio** — Web Audio dice rumbles/impacts, coin chimes, pawn thuds, card shuffles, purchase arpeggios, bankruptcy stings and a win fanfare.
 - **Responsive & accessible** — mobile layout, keyboard controls (`R` to roll, `Space` to continue after review, `F` fullscreen, `Esc` to close dialogs), reduced-motion support, labelled dialogs and live logs.
 
@@ -102,6 +102,8 @@ Open **⚙️ Table Settings** (or click the `1× · Manual` chip in the dock) t
 **Match length:** set **Max rounds** in the lobby (5–99, default 30). It is stored in the match save, shown in the header and board footer, and used for the round-limit win. The $1M instant win still applies.
 
 **Match Ledger:** shows the **current round only** in a capped 280px panel; older entries remain in the save/log history but the visible ledger stays short and scrolls internally. The **R** chip shows the current round.
+
+**External lane:** every pawn lives on a 72px outer rail aligned to its tile, with a larger token and current-player glow. Raised tiles and occupant initials remain on the board, and clicking a lane token opens that tile's detail card. The audit-lockout pay/forfeit decision is persisted immediately.
 
 **Tile inspector:** click or tap any board box in a safe phase — before rolling, while deciding to buy, during a lockout choice, during review, or after the match. It opens a large card with:
 
@@ -167,7 +169,7 @@ Each deck is Fisher–Yates shuffled and refilled when exhausted.
 | Buy / Pass | Decision buttons appear in the dock |
 | Lockout | **Pay $10,000** to play, or **Lose Turn** |
 | Review / continue | In **Manual** mode click **Continue →**, or press **Space / Enter** |
-| Fullscreen | Click **⤢** in the header or press **F** |
+| Fullscreen | Lobby **Play fullscreen**, dock **Fullscreen**, **Table Settings → Display**, header **⤢**, or **F** |
 | Match length | **Max rounds** in the lobby (5–99) |
 | Match ledger | Current round only; **R** chip + scroll |
 | Table settings | Click **⚙️** in the header or the **`1× · Manual`** chip in the dock |
@@ -240,7 +242,14 @@ Try it on the live site: https://somphol.github.io/millionaire-race-2.5d/?demo=1
 - **Dice readout:** only the total is shown (7, not 5 + 2); there are no individual die chips and the log records only the total.
 - **Raised tiles:** occupied boxes lift 12 logical pixels with a taller side, shadow, player-colored rim and occupant badges; the hit-test follows the raised tile.
 - **Sidebar:** at 140% with 60 ledger entries, the leaderboard and ledger do not overlap; the ledger scrolls internally.
-- **Pacing & inspection checks:** 0.5× step measured at ~421 ms vs ~124 ms at 2×; Manual mode enters review with the Continue button and REVIEW badge; Auto mode advances to the AI seat; a real canvas click opens the correct tile card; review state survives save/load.
+- **Pacing:** pawn step at 400 ms measured ~429 ms and stayed ~421–430 ms at table speed 0.5× and 3×; table speed controls AI/turn timing separately.
+- **Auto flow:** human Auto starts without a Roll click, hides the Roll button and advances to the AI seat; switching Auto mid-review resumes.
+- **Affordability:** cash $60,000 vs a $100,000 property shows a $40,000 shortfall, disables Buy, offers Pass (cash short) and explains that net worth is not spendable.
+- **Match length:** a 5-round lobby game ended with “5 rounds complete”, header 5 / 5, and save/load preserved `maxRounds`.
+- **Fullscreen:** labeled entry points in the lobby, dock and Table Settings; the Fullscreen API toggled in/out and updated the icon/aria state.
+- **External lane:** 72 px rail, tokens aligned to all 24 tiles, current-player glow and lane-token click hit-testing.
+- **Lockout:** paying saved $90,000 cash and cleared lockout across reload (no second fee); losing persisted a review state that could not be replayed as a normal turn.
+- **Ledger/header:** current-round ledger capped at 280 px with internal scroll and no leaderboard overlap; header stays on one row at 110% and 140%.
 - **Text scaling checks:** 110% keeps the header on one row; 125% and 140% collapse header action labels to icons while keeping one row; log text scales from 11.5 px to 16.1 px at 140%.
 
 ---
@@ -249,8 +258,8 @@ Try it on the live site: https://somphol.github.io/millionaire-race-2.5d/?demo=1
 
 This entire project — design, code, copy, tests and screenshots — was created end-to-end by **[OpenCode](https://opencode.ai)** using **DeepSeek V4.1 Flash** (`opencode-go/deepseek-v4.1-flash`).
 
-- **Primary build time:** **98 min 18 sec** through the v1.1 review/readability update (first playable delivery at 48 min 25 sec). Follow-up sittings added the compact dice tray, fullscreen, current-round ledger, auto-roll, affordability guidance, raised tiles, pawn-step slider and configurable match length. The session spans multiple sittings, so wall-clock includes idle gaps. See [BUILD_STATE.md](BUILD_STATE.md).
-- **Token accounting:** **174,801,819** total at the latest snapshot — 1,744,332 input, 191,647 output, 391,166 reasoning, 172,472,832 cache read, 1,842 cache write. Cache reads dominate because the full context is re-read each turn. See [build-state.json](build-state.json).
+- **Primary build time:** **98 min 18 sec** through the v1.1 review/readability update (first playable delivery at 48 min 25 sec). Follow-up sittings added the compact dice tray, fullscreen controls, current-round ledger, auto-roll, affordability guidance, raised tiles, external pawn lane, pawn-step slider, configurable match length and lockout persistence. The session spans multiple sittings, so wall-clock includes idle gaps. See [BUILD_STATE.md](BUILD_STATE.md).
+- **Token accounting:** **217,033,054** total at the latest snapshot — 1,868,774 input, 214,487 output, 469,487 reasoning, 214,478,464 cache read, 1,842 cache write. Cache reads dominate because the full context is re-read each turn. See [build-state.json](build-state.json).
 - **Model / provider:** `opencode-go` · `deepseek-v4.1-flash`
 - **Session:** `ses_e67a68f85ffe5oCsIETmyBfVZY`
 

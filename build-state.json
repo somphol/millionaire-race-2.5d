@@ -21,8 +21,8 @@
     "elapsed_seconds": 5899,
     "elapsed_human": "98m 18s",
     "note": "Cumulative time from session start through the v1.1 review/pacing/tile-inspector/text-size update.",
-    "latest_snapshot_at": "2026-11-01T16:12:11-08:00",
-    "latest_note": "Session spans multiple sittings; the 10:22\u201316:12 wall clock includes idle breaks. Primary active build through v1.1 is 98m18s, plus follow-up passes for pacing, compact dice, inspection, readability, fullscreen, ledger, auto-roll, affordability and match length."
+    "latest_snapshot_at": "2026-11-01T17:08:32-08:00",
+    "latest_note": "Session spans multiple sittings; wall clock includes idle breaks. Primary active build through v1.1 is 98m18s, plus follow-up passes for pacing, compact dice, inspection, readability, fullscreen, ledger, auto-roll, affordability, match length, external lane and lockout persistence."
   },
   "tokens": {
     "feature_snapshot": {
@@ -49,15 +49,15 @@
     "provider_reported_cost_usd": 0.0,
     "note": "Latest snapshot captured before the final docs/commit/push/reply. The session resumed several times; token counts are cumulative. Cache reads dominate because the full context is re-read each turn.",
     "latest_snapshot": {
-      "input": 1744332,
-      "output": 191647,
-      "reasoning": 391166,
-      "cache_read": 172472832,
+      "input": 1868774,
+      "output": 214487,
+      "reasoning": 469487,
+      "cache_read": 214478464,
       "cache_write": 1842,
-      "total_all_classes": 174801819,
-      "input_plus_output": 1935979,
-      "input_output_reasoning": 2327145,
-      "cache_traffic": 172474674
+      "total_all_classes": 217033054,
+      "input_plus_output": 2083261,
+      "input_output_reasoning": 2552748,
+      "cache_traffic": 214480306
     }
   },
   "delivery": {
@@ -75,10 +75,10 @@
       "screenshot-tile.png"
     ],
     "line_counts": {
-      "index.html": 381,
-      "style.css": 1647,
-      "script.js": 3993,
-      "core_total": 6021
+      "index.html": 393,
+      "style.css": 1648,
+      "script.js": 4115,
+      "core_total": 6156
     },
     "build_step": false,
     "install_step": false,
@@ -95,11 +95,13 @@
     "manual / auto turn flow; Auto rolls the human dice and advances automatically",
     "manual review with Continue and REVIEW badge; review state persists",
     "configurable match length 5-99 rounds in the lobby, stored in the save",
+    "external 72px pawn lane with larger tokens aligned to every tile",
     "raised occupied tiles with 3D side, shadow, occupant rim and initials",
     "clickable tile inspector with cash/net-worth affordability guidance",
     "compact dice tray with total-only readout",
-    "fullscreen API button + F shortcut",
+    "fullscreen via lobby, dock, settings, header or F",
     "last-round ledger with round chip and capped internal scroll",
+    "lockout pay/forfeit choice persisted immediately across reloads",
     "text-size scaling 100/110/125/140 with persisted settings",
     "header icon-collapse at 125%+; Rules icon-only to keep one row",
     "Space/Enter continue shortcut",
@@ -147,7 +149,26 @@
       "ledger_overlap": false,
       "header_one_row_at_110": true,
       "header_one_row_at_140": true,
-      "log_font_at_140": "16.1px"
+      "log_font_at_140": "16.1px",
+      "external_lane": {
+        "width_px_logical": 72,
+        "tokens_aligned_all_tiles": true,
+        "current_glow": true,
+        "lane_hit_test": "pass"
+      },
+      "lockout_persistence": {
+        "pay_saved_cash": 90000,
+        "pay_reload_no_double": true,
+        "lose_saved_as_review": true,
+        "lose_reload_no_replay": true
+      },
+      "fullscreen_entry_points": [
+        "lobby",
+        "dock",
+        "settings",
+        "header",
+        "F"
+      ]
     }
   },
   "credits": {
