@@ -13,9 +13,9 @@ A complete, production-ready 2.5D wealth-building board game for the browser. Bu
 ![Millionaire Race 2.5D board](screenshot-board.jpg)
 
 <p align="center">
-  <img src="screenshot-tile.png" width="32%" alt="Clickable tile detail card" />
-  <img src="screenshot-settings.png" width="32%" alt="Table settings for speed, turn flow and text size" />
-  <img src="screenshot-dice.png" width="32%" alt="Compact 3D physics dice tray over the board" />
+  <img src="screenshot-tile.png" width="32%" alt="Tile detail card showing a cash shortfall and the net-worth explanation" />
+  <img src="screenshot-settings.png" width="32%" alt="Table settings for table speed, pawn step time, turn flow and text size" />
+  <img src="screenshot-dice.png" width="32%" alt="Compact 3D physics dice tray showing only the total steps" />
 </p>
 
 <p align="center">
@@ -46,18 +46,21 @@ The board, economy, AI and persistence are fully offline-capable. The 3D dice us
 ## Highlights
 
 - **2–4 player lobby** with editable names, red/blue/green/yellow color pickers and Human / AI Bot toggles.
-- **Top-down 2.5D Canvas board** — extruded tiles, isometric property towers, ownership flags, asset-tier stars, live pawns with hop animation, glowing current-tile ring and an animated city skyline.
-- **Review-friendly pacing** — movement speed from **0.5× to 3×**, plus **Manual / Auto turn flow**. Manual pauses after your turn with a **Continue** button so you can study the tile, rent and balance before advancing.
+- **Top-down 2.5D Canvas board** — extruded tiles, isometric property towers, ownership flags, asset-tier stars, live pawns with hop animation, glowing current-tile ring and an animated city skyline. Tiles holding players **rise as 3D platforms** with a taller side, shadow, player-colored rim and occupant badges.
+- **Review-friendly pacing** — table speed from **0.5× to 3×** for AI/turn timing, a dedicated **80–1200 ms pawn-step slider** for the box-to-box hop, plus **Manual / Auto turn flow**. Manual pauses after your turn with a **Continue** button so you can study the tile, rent and balance. **Auto rolls your dice for you** and advances automatically.
 - **Tile inspector** — click or tap **any board box** for a large detail card with price, rent/yield, owner, tier, mortgage status, live position info and dynamic effect notes.
 - **Readable interface** — **A− / A+ text scaling** (100%, 110%, 125%, 140%) for the lobby, sidebar, dialogs, logs and board labels, persisted between sessions.
-- **Real 3D physics dice** — two tumbling Cannon.js cubes inside a Three.js table, random forces and torque, pip textures, shadows, rail collisions, automatic rest detection and result reading from the upward face. The roll shows in a **compact floating tray over the board centre**, with a light backdrop so the tiles stay visible; on phones the tray drops below the board.
+- **Real 3D physics dice** — two tumbling Cannon.js cubes inside a Three.js table, random forces and torque, pip textures, shadows, rail collisions, automatic rest detection and result reading from the upward face. The roll shows in a **compact floating tray over the board centre**, with a light backdrop so the tiles stay visible; on phones the tray drops below the board. The readout shows only the **total steps** — individual die results are not displayed.
 - **Complete economy** — salaries, stock dividends, rent, taxes, auto-mortgages, bankruptcy, eliminations and a live net-worth leaderboard.
 - **Shuffled card deck** — bull runs, crypto crashes, real-estate booms and tax loopholes.
 - **AI decision tree** — bots buy when reserves stay above $20,000 and pay the $10,000 audit-lockout exit fee when cash is above $30,000.
-- **Win conditions** — instant victory at $1,000,000 net worth at the end of a turn; otherwise the highest net worth after 30 rounds.
+- **Win conditions** — instant victory at $1,000,000 net worth at the end of a turn; otherwise the highest net worth after the configured match length.
+- **Configurable match length** — **5–99 rounds** in the lobby (default 30); the $1M instant win always applies.
+- **Current-round ledger** — the Match Ledger shows only the current round in a fixed-height, scrollable panel, with a round chip and the last actions front and centre.
+- **Fullscreen** — the header **⤢** button or the **F** key enters/leaves browser fullscreen.
 - **Persistence** — autosave after every turn to `localStorage`, plus JSON export (`millionaire_race_save.json`) and import.
 - **Synthesized audio** — Web Audio dice rumbles/impacts, coin chimes, pawn thuds, card shuffles, purchase arpeggios, bankruptcy stings and a win fanfare.
-- **Responsive & accessible** — mobile layout, keyboard controls (`R` to roll, `Space` to continue after review, `Esc` to close dialogs), reduced-motion support, labelled dialogs and live logs.
+- **Responsive & accessible** — mobile layout, keyboard controls (`R` to roll, `Space` to continue after review, `F` fullscreen, `Esc` to close dialogs), reduced-motion support, labelled dialogs and live logs.
 
 ---
 
@@ -66,8 +69,9 @@ The board, economy, AI and persistence are fully offline-capable. The 3D dice us
 | Rule | Detail |
 | --- | --- |
 | **Instant victory** | First player to reach **$1,000,000 total net worth** at the end of a turn wins. |
-| **Round-limit victory** | If nobody reaches $1M, the highest net worth after **30 rounds** wins. |
+| **Round-limit victory** | If nobody reaches $1M, the highest net worth after the **configured maximum rounds** (default 30) wins. |
 | **Net worth** | Cash + the buy value of every asset you own. |
+| **Spending** | Purchases and rent are paid from **liquid cash**. Net worth includes owned assets and cannot be spent directly. |
 | **Start** | $100,000 cash and $100,000 net worth per player. |
 | **GO** | Passing or landing on GO pays **$20,000 salary + 10% dividends** on the buy value of owned stocks. |
 | **Rent** | Landing on a rival's asset pays rent/yield to the owner. |
@@ -88,11 +92,16 @@ Open **⚙️ Table Settings** (or click the `1× · Manual` chip in the dock) t
 
 | Setting | Options | Effect |
 | --- | --- | --- |
-| **Movement speed** | 0.5× · 0.75× · 1× · 1.5× · 2× · 3× | Scales pawn hop duration, the after-GO pause, AI thinking/action delays and the review delay. |
-| **Turn flow** | **Manual** (default) · Auto | Manual pauses after each **human** turn with a Continue button. AI turns keep playing so you can watch the table. Auto restores the original uninterrupted flow. |
+| **Table speed** | 0.5× · 0.75× · 1× · 1.5× · 2× · 3× | Scales AI thinking, action handoffs, after-GO pauses and review timing. |
+| **Pawn step time** | **80–1200 ms** (default 200 ms) | Duration of the pawn hop from one box to the next — independent of table speed. |
+| **Turn flow** | **Manual** (default) · Auto | Manual pauses after each **human** turn with a Continue button. **Auto rolls your dice for you** and advances automatically. AI turns always play automatically. |
 | **Text size** | **100% · 110% · 125% · 140%** | Scales the lobby, tabs, sidebar, log, dialogs and result messages. Header action labels collapse to icons at 125%+ to keep one row. Board labels also get a readable boost. |
 
 **Manual review:** the player's leaderboard row shows **REVIEW**, the dock shows **Continue →**, and the state is autosaved. Press **Space/Enter** or click Continue when you are ready. The next player then begins.
+
+**Match length:** set **Max rounds** in the lobby (5–99, default 30). It is stored in the match save, shown in the header and board footer, and used for the round-limit win. The $1M instant win still applies.
+
+**Match Ledger:** shows the **current round only** in a capped 280px panel; older entries remain in the save/log history but the visible ledger stays short and scrolls internally. The **R** chip shows the current round.
 
 **Tile inspector:** click or tap any board box in a safe phase — before rolling, while deciding to buy, during a lockout choice, during review, or after the match. It opens a large card with:
 
@@ -103,6 +112,10 @@ Open **⚙️ Table Settings** (or click the `1× · Manual` chip in the dock) t
 During dice motion or pawn movement the inspector asks you to wait, then opens normally.
 
 Text size, speed and turn flow are saved in `localStorage`, so your reading preference and pacing survive reloads.
+
+### Cash vs net worth
+
+Buying uses **liquid cash**, not net worth. The leaderboard shows both: `Cash` is spendable, while `Net worth` includes owned assets. If a purchase is short, the dock and tile card show the exact shortfall, the Buy button is disabled, and you can still inspect the property before passing. Auto-mortgage only applies to forced rent/tax payments — not optional purchases.
 
 ---
 
@@ -154,9 +167,13 @@ Each deck is Fisher–Yates shuffled and refilled when exhausted.
 | Buy / Pass | Decision buttons appear in the dock |
 | Lockout | **Pay $10,000** to play, or **Lose Turn** |
 | Review / continue | In **Manual** mode click **Continue →**, or press **Space / Enter** |
+| Fullscreen | Click **⤢** in the header or press **F** |
+| Match length | **Max rounds** in the lobby (5–99) |
+| Match ledger | Current round only; **R** chip + scroll |
 | Table settings | Click **⚙️** in the header or the **`1× · Manual`** chip in the dock |
+| Pawn step time | Table Settings → **Pawn step time** slider (80–1200 ms) |
 | Inspect a box | Click or tap any board tile |
-| Text size | **A− / A+** in the header, or the slider in Table Settings |
+| Text size | **A− / A+** in the header, or the stepper in Table Settings |
 | Save / load | **💾 Save** / **📂 Load** in the header |
 | New match | **🔄 New** |
 | Sound | Speaker button |
@@ -177,6 +194,9 @@ Turns with no decision (rent, tax, cards, GO, parking) settle automatically. In 
 | Inspection | Canvas hit-testing + hover outline, per-tile data model, dynamic detail cards |
 | Pacing | Speed-scaled step/AI timers and a persisted Manual/Auto turn-flow state machine |
 | Typography | rem-based UI scale (100–140%) plus a proportional Canvas label boost |
+| Fullscreen | Browser Fullscreen API, header toggle and `F` shortcut |
+| Match rules | `state.maxRounds` (5–99) stored in the save; lobby stepper |
+| Ledger | Current-round filter, capped 280px scrollable panel with round chip |
 | Dice | Three.js r152 + Cannon.js 0.6.2 (CDN) with a Canvas 2D fallback |
 | Audio | Web Audio API oscillators, filtered noise buffers and gain envelopes |
 | Persistence | `localStorage` + JSON Blob import/export |
@@ -185,7 +205,7 @@ Turns with no decision (rent, tax, cards, GO, parking) settle automatically. In 
 
 ```
 millionaire-race-2.5d/
-├── index.html            # App shell, lobby, dice/card/win/rules dialogs
+├── index.html            # App shell, lobby, dice/card/win/rules/settings/tile dialogs
 ├── style.css             # Luxury fintech / board-game visual system
 ├── script.js             # Game engine, Canvas renderer, dice physics, audio, AI
 ├── screenshot-board.jpg
@@ -217,6 +237,9 @@ Try it on the live site: https://somphol.github.io/millionaire-race-2.5d/?demo=1
 - Full **120-turn / 30-round** simulated match with random dice, cards, lockouts, purchases and rent — ended correctly on the 30-round net-worth tiebreak with no console errors.
 - Targeted assertions for auto-mortgage, bankruptcy asset release, GO dividends, tax loophole, $1M victory, AI buy threshold and save/load round-trip.
 - **Compact dice tray:** the board remains visible around the tray; on desktop the tray is centred over the board centre and on mobile it is anchored below the board.
+- **Dice readout:** only the total is shown (7, not 5 + 2); there are no individual die chips and the log records only the total.
+- **Raised tiles:** occupied boxes lift 12 logical pixels with a taller side, shadow, player-colored rim and occupant badges; the hit-test follows the raised tile.
+- **Sidebar:** at 140% with 60 ledger entries, the leaderboard and ledger do not overlap; the ledger scrolls internally.
 - **Pacing & inspection checks:** 0.5× step measured at ~421 ms vs ~124 ms at 2×; Manual mode enters review with the Continue button and REVIEW badge; Auto mode advances to the AI seat; a real canvas click opens the correct tile card; review state survives save/load.
 - **Text scaling checks:** 110% keeps the header on one row; 125% and 140% collapse header action labels to icons while keeping one row; log text scales from 11.5 px to 16.1 px at 140%.
 
@@ -226,8 +249,8 @@ Try it on the live site: https://somphol.github.io/millionaire-race-2.5d/?demo=1
 
 This entire project — design, code, copy, tests and screenshots — was created end-to-end by **[OpenCode](https://opencode.ai)** using **DeepSeek V4.1 Flash** (`opencode-go/deepseek-v4.1-flash`).
 
-- **Wall-clock build time:** **98 min 18 sec** through the v1.1 review/readability update (first playable delivery at 48 min 25 sec), plus a compact-dice-tray tweak in a later sitting. See [BUILD_STATE.md](BUILD_STATE.md).
-- **Token accounting:** **89,163,191** total at the latest snapshot — 1,506,897 input, 142,708 output, 249,664 reasoning, 87,262,080 cache read, 1,842 cache write. Cache reads dominate because the full context is re-read each turn. See [build-state.json](build-state.json).
+- **Primary build time:** **98 min 18 sec** through the v1.1 review/readability update (first playable delivery at 48 min 25 sec). Follow-up sittings added the compact dice tray, fullscreen, current-round ledger, auto-roll, affordability guidance, raised tiles, pawn-step slider and configurable match length. The session spans multiple sittings, so wall-clock includes idle gaps. See [BUILD_STATE.md](BUILD_STATE.md).
+- **Token accounting:** **174,801,819** total at the latest snapshot — 1,744,332 input, 191,647 output, 391,166 reasoning, 172,472,832 cache read, 1,842 cache write. Cache reads dominate because the full context is re-read each turn. See [build-state.json](build-state.json).
 - **Model / provider:** `opencode-go` · `deepseek-v4.1-flash`
 - **Session:** `ses_e67a68f85ffe5oCsIETmyBfVZY`
 

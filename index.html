@@ -52,6 +52,7 @@
 
     <div class="topbar-actions">
       <button class="icon-btn" id="soundBtn" type="button" title="Toggle sound" aria-label="Toggle sound" aria-pressed="true">🔊</button>
+      <button class="icon-btn" id="fullscreenBtn" type="button" title="Fullscreen (F)" aria-label="Enter fullscreen" aria-pressed="false">⤢</button>
       <div class="font-control" role="group" aria-label="Text size">
         <button class="font-btn" id="fontDown" type="button" title="Decrease text size" aria-label="Decrease text size">A−</button>
         <span class="font-label" id="fontLabel">100%</span>
@@ -111,7 +112,10 @@
       <section class="panel log-panel">
         <div class="panel-head">
           <h2>Match Ledger</h2>
-          <button class="mini-btn" id="clearLogBtn" type="button" title="Clear the visible log">Clear</button>
+          <div class="panel-head-meta">
+            <span class="ledger-round" id="ledgerRound">R1</span>
+            <button class="mini-btn" id="clearLogBtn" type="button" title="Clear the visible log">Clear</button>
+          </div>
         </div>
         <div class="log" id="log" aria-live="polite">
           <p class="empty-note">The financial chronicle begins…</p>
@@ -122,7 +126,7 @@
         <div class="panel-head"><h2>Quick Guide</h2></div>
         <ul class="legend">
           <li><span class="swatch-dot go"></span><b>GO</b> +$20K salary + 10% stock dividends</li>
-          <li><span class="swatch-dot asset"></span><b>Assets</b> buy, collect rent, build net worth</li>
+          <li><span class="swatch-dot asset"></span><b>Assets</b> buy with cash — they build net worth</li>
           <li><span class="swatch-dot chance"></span><b>Cards</b> market swings &amp; opportunities</li>
           <li><span class="swatch-dot tax"></span><b>Taxes</b> drain liquid cash — keep reserves</li>
           <li><span class="swatch-dot info"></span><b>Tiles</b> click any box for full details</li>
@@ -138,7 +142,7 @@
         <div class="hero-badge">2.5D BOARD GAME</div>
         <h2 id="lobbyTitle">Millionaire Race</h2>
         <p class="lobby-sub">Wealth &amp; Asset Tycoon Studio</p>
-        <p class="lobby-lede">Buy the skyline. Collect the rent. Reach <b>$1,000,000</b> net worth before your rivals — or own the most after 30 rounds.</p>
+        <p class="lobby-lede">Buy the skyline. Collect the rent. Reach <b>$1,000,000</b> net worth before your rivals — or own the most after the round limit.</p>
       </div>
 
       <div class="lobby-config">
@@ -150,6 +154,16 @@
             <button type="button" data-count="4" class="active">4</button>
           </div>
           <span class="lobby-note">Mix humans &amp; AI rivals</span>
+        </div>
+
+        <div class="match-length-row">
+          <span class="label">Max rounds</span>
+          <div class="round-stepper">
+            <button type="button" id="roundsDown" aria-label="Fewer rounds">−</button>
+            <input id="roundsInput" type="number" min="5" max="99" step="5" value="30" inputmode="numeric" aria-label="Maximum rounds" />
+            <button type="button" id="roundsUp" aria-label="More rounds">+</button>
+          </div>
+          <span class="lobby-note">First to $1M still wins instantly</span>
         </div>
 
         <div class="lobby-players" id="lobbyPlayers">
@@ -183,11 +197,8 @@
           <p>Loading 3D physics…</p>
         </div>
       </div>
-      <div class="dice-readout">
-        <div class="die-chip" id="dieChip1">—</div>
-        <span class="plus">+</span>
-        <div class="die-chip" id="dieChip2">—</div>
-        <span class="equals">=</span>
+      <div class="dice-readout dice-readout-total">
+        <span class="total-label">Total steps</span>
         <div class="die-total" id="dieTotal">—</div>
       </div>
       <p class="dice-caption" id="diceCaption">Two dice. Twelve steps. One fortune.</p>
@@ -237,10 +248,10 @@
       <div class="settings-body">
         <section class="setting-row">
           <div>
-            <h3>Movement speed</h3>
-            <p>Slow down pawn steps and AI pacing so you can follow every box. Changes apply immediately.</p>
+            <h3>Table speed</h3>
+            <p>Scales AI thinking, action handoffs, after-GO pauses and review timing. For the pawn hop, use Pawn step time.</p>
           </div>
-          <div class="speed-picker" id="speedPicker" role="group" aria-label="Movement speed">
+          <div class="speed-picker" id="speedPicker" role="group" aria-label="Table speed">
             <button type="button" data-speed="0.5">0.5×</button>
             <button type="button" data-speed="0.75">0.75×</button>
             <button type="button" data-speed="1">1×</button>
@@ -252,8 +263,19 @@
 
         <section class="setting-row">
           <div>
+            <h3>Pawn step time</h3>
+            <p>Time for the pawn to hop from one box to the next. Slow it down to follow every square; speed it up for long moves.</p>
+          </div>
+          <div class="step-control">
+            <input type="range" id="stepRange" min="80" max="1200" step="20" value="200" aria-label="Pawn step time in milliseconds" />
+            <output id="stepValue" for="stepRange">200 ms</output>
+          </div>
+        </section>
+
+        <section class="setting-row">
+          <div>
             <h3>Turn flow</h3>
-            <p>Manual pauses after your turn with a Continue button, so you can review the tile, rent and your new balance before the next player moves.</p>
+            <p>Manual pauses after your turn with a Continue button, so you can review the tile, rent and your new balance. Auto rolls your dice for you and advances automatically.</p>
           </div>
           <div class="segmented" id="turnModePicker" role="group" aria-label="Turn flow">
             <button type="button" data-mode="manual">Manual</button>
@@ -317,15 +339,15 @@
       <div class="rules-grid">
         <div class="rule-card">
           <h3>🏆 Victory</h3>
-          <p>First player to reach <b>$1,000,000</b> total net worth at the end of a turn wins instantly. If nobody does, the highest net worth after <b>30 rounds</b> wins.</p>
+          <p>First player to reach <b>$1,000,000</b> total net worth at the end of a turn wins instantly. If nobody does, the highest net worth after the <b>configured maximum rounds</b> wins.</p>
         </div>
         <div class="rule-card">
           <h3>💵 Economy</h3>
-          <p>Everyone starts with <b>$100,000</b>. Net worth = cash + the buy value of every asset you own. Passing or landing on GO pays <b>$20,000</b> plus a <b>10% dividend</b> on owned stocks.</p>
+          <p>Everyone starts with <b>$100,000</b>. Net worth = cash + the buy value of every asset you own. Purchases use <b>liquid cash</b> — net worth is a score, not a wallet. Passing or landing on GO pays <b>$20,000</b> plus a <b>10% dividend</b> on owned stocks.</p>
         </div>
         <div class="rule-card">
           <h3>🏙️ Assets &amp; Rent</h3>
-          <p>Land on an unowned asset to buy it or pass. Land on a rival's asset and pay rent from cash. If cash is short, assets auto-mortgage at <b>50%</b> of purchase value.</p>
+          <p>Land on an unowned asset to buy it or pass. Buying requires <b>liquid cash</b>; owned assets count toward net worth but cannot be spent on purchases. If a forced rent/tax payment is short, assets auto-mortgage at <b>50%</b> of purchase value.</p>
         </div>
         <div class="rule-card">
           <h3>💀 Bankruptcy</h3>
@@ -341,10 +363,10 @@
         </div>
         <div class="rule-card">
           <h3>🔎 Review &amp; inspect</h3>
-          <p>Open <b>Table Settings</b> to slow movement and pause after your turn. In Manual mode a <b>Continue</b> button appears when you are ready. Click any tile for its full details.</p>
+          <p>Open <b>Table Settings</b> to set table speed, pawn step time and turn flow. <b>Manual</b> shows a <b>Continue</b> button after your turn; <b>Auto</b> rolls your dice and advances for you. Click any tile for its full details.</p>
         </div>
       </div>
-      <div class="rules-foot">Tip: press <kbd>R</kbd> to roll, <kbd>Space</kbd> to continue after review, <kbd>Esc</kbd> to close dialogs.</div>
+      <div class="rules-foot">Tip: press <kbd>R</kbd> to roll, <kbd>Space</kbd> to continue after review, <kbd>F</kbd> for fullscreen, <kbd>Esc</kbd> to close dialogs.</div>
     </div>
   </div>
 

@@ -21,8 +21,8 @@
     "elapsed_seconds": 5899,
     "elapsed_human": "98m 18s",
     "note": "Cumulative time from session start through the v1.1 review/pacing/tile-inspector/text-size update.",
-    "latest_snapshot_at": "2026-11-01T15:04:00-08:00",
-    "latest_note": "Session spans multiple sittings; the 10:22\u201315:04 wall clock includes an idle break. Active build through v1.1 is 98m18s; the compact dice-tray tweak is a short follow-up."
+    "latest_snapshot_at": "2026-11-01T16:12:11-08:00",
+    "latest_note": "Session spans multiple sittings; the 10:22\u201316:12 wall clock includes idle breaks. Primary active build through v1.1 is 98m18s, plus follow-up passes for pacing, compact dice, inspection, readability, fullscreen, ledger, auto-roll, affordability and match length."
   },
   "tokens": {
     "feature_snapshot": {
@@ -47,17 +47,17 @@
       "input_output_reasoning": 634785
     },
     "provider_reported_cost_usd": 0.0,
-    "note": "Latest snapshot captured at ~15:04, before the final docs/commit/push/reply. The session resumed after a break; token counts are cumulative. Cache reads dominate because the full context is re-read each turn.",
+    "note": "Latest snapshot captured before the final docs/commit/push/reply. The session resumed several times; token counts are cumulative. Cache reads dominate because the full context is re-read each turn.",
     "latest_snapshot": {
-      "input": 1506897,
-      "output": 142708,
-      "reasoning": 249664,
-      "cache_read": 87262080,
+      "input": 1744332,
+      "output": 191647,
+      "reasoning": 391166,
+      "cache_read": 172472832,
       "cache_write": 1842,
-      "total_all_classes": 89163191,
-      "input_plus_output": 1649605,
-      "input_output_reasoning": 1899269,
-      "cache_traffic": 87263922
+      "total_all_classes": 174801819,
+      "input_plus_output": 1935979,
+      "input_output_reasoning": 2327145,
+      "cache_traffic": 172474674
     }
   },
   "delivery": {
@@ -75,10 +75,10 @@
       "screenshot-tile.png"
     ],
     "line_counts": {
-      "index.html": 359,
-      "style.css": 1521,
-      "script.js": 3700,
-      "core_total": 5580
+      "index.html": 381,
+      "style.css": 1647,
+      "script.js": 3993,
+      "core_total": 6021
     },
     "build_step": false,
     "install_step": false,
@@ -90,20 +90,25 @@
     "license": "MIT"
   },
   "features_v1_1": [
-    "movement speed 0.5x / 0.75x / 1x / 1.5x / 2x / 3x",
-    "manual turn-flow review with Continue button and REVIEW badge",
-    "autosaved review state that survives reload",
-    "clickable/tappable tile inspector with hover outline and dynamic notes",
-    "text-size scaling 100% / 110% / 125% / 140% with persisted settings",
-    "header action icon-collapse at 125%+ to preserve a single row",
+    "table speed 0.5x / 0.75x / 1x / 1.5x / 2x / 3x",
+    "dedicated 80-1200ms pawn-step slider independent of table speed",
+    "manual / auto turn flow; Auto rolls the human dice and advances automatically",
+    "manual review with Continue and REVIEW badge; review state persists",
+    "configurable match length 5-99 rounds in the lobby, stored in the save",
+    "raised occupied tiles with 3D side, shadow, occupant rim and initials",
+    "clickable tile inspector with cash/net-worth affordability guidance",
+    "compact dice tray with total-only readout",
+    "fullscreen API button + F shortcut",
+    "last-round ledger with round chip and capped internal scroll",
+    "text-size scaling 100/110/125/140 with persisted settings",
+    "header icon-collapse at 125%+; Rules icon-only to keep one row",
     "Space/Enter continue shortcut",
-    "settings modal and dock pace chip",
-    "compact floating 3D dice tray (470px, 14% backdrop, over the board centre; below board on phones; scaled 2D fallback dice)"
+    "settings modal and dock pace chip"
   ],
   "validation": {
     "syntax_check": "pass (JavaScriptCore)",
     "headless_chrome": "pass at 1920x1080, 1440x900 and 390x844; no console errors",
-    "webgl_dice": "pass (SwiftShader WebGL; rendered top faces match dice chips)",
+    "webgl_dice": "pass (SwiftShader WebGL; rendered top faces match dice state)",
     "canvas_dice_fallback": "pass (WebGL disabled)",
     "full_games": "3 x 120-turn / 30-round random simulations, all completed correctly",
     "targeted_logic": [
@@ -116,30 +121,33 @@
       "AI lockout threshold (cash > 30000)",
       "localStorage save/load round-trip"
     ],
-    "pacing_review_inspector": {
-      "step_slow_ms": 421,
-      "step_fast_ms": 124,
-      "manual_review": "pass",
-      "auto_flow": "pass",
-      "tile_click_hit_test": "pass",
-      "inspector_blocked_while_moving": true,
-      "inspector_blocked_on_ai_turns": true,
-      "review_state_persistence": "pass",
-      "font_110_header_one_row": true,
-      "font_125_140_header_one_row": true,
-      "log_font_size_at_140": "16.1px"
-    },
-    "compact_dice_tray": {
-      "desktop_panel_px": [
-        456,
-        322
-      ],
-      "desktop_board_px": 761,
-      "mobile_panel_top": 546,
-      "mobile_board_bottom": 547,
-      "backdrop": "rgba(3,5,9,0.14)",
-      "backdrop_blur": "none",
-      "board_visible": "perimeter tiles visible on desktop; fully visible above tray on mobile"
+    "followup_checks": {
+      "pawn_step_400ms_measured": 429,
+      "pawn_step_independent_of_table_speed": true,
+      "auto_human_roll": true,
+      "auto_mid_review_resume": true,
+      "cash_shortfall_demo": {
+        "cash": 60000,
+        "price": 100000,
+        "shortfall": 40000,
+        "buy_disabled": true
+      },
+      "max_rounds_test": {
+        "configured": 5,
+        "header": "5 / 5",
+        "reason": "5 rounds complete",
+        "save_load_preserved": true
+      },
+      "fullscreen_api_toggle": true,
+      "raised_tile_lift": 12,
+      "raised_hit_test": "pass",
+      "dice_total_only": true,
+      "ledger_current_round": true,
+      "ledger_height_px": 280,
+      "ledger_overlap": false,
+      "header_one_row_at_110": true,
+      "header_one_row_at_140": true,
+      "log_font_at_140": "16.1px"
     }
   },
   "credits": {

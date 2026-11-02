@@ -297,7 +297,9 @@ let settings = {
   lobby: null,
   speed: 1,
   autoAdvance: false,
-  fontScale: 1.1
+  fontScale: 1.1,
+  stepMs: 200,
+  maxRounds: MAX_ROUNDS
 };
 
 const lobbyConfig = [
@@ -315,6 +317,8 @@ const ui = {
   diceFinish: null,
   diceCleanup: null,
   diceTicker: null,
+  autoRollTimer: null,
+  endTimerKind: null,
   pendingCard: null,
   lastDraw: 0,
   dirty: true,
@@ -350,12 +354,12 @@ function playerColor(player) {
 
 function addLog(text, kind = 'info') {
   if (!state) return;
-  state.log.push({ t: Date.now(), text, kind });
+  state.log.push({ t: Date.now(), text, kind, round: state.round });
   if (state.log.length > 250) state.log.splice(0, state.log.length - 250);
   renderLog();
 }
 
-function createState(configs) {
+function createState(configs, maxRounds = MAX_ROUNDS) {
   return {
     version: SAVE_VERSION,
     createdAt: Date.now(),
@@ -378,6 +382,7 @@ function createState(configs) {
     },
     current: 0,
     round: 1,
+    maxRounds: clamp(Math.round(Number(maxRounds) || MAX_ROUNDS), 5, 99),
     turn: 0,
     phase: 'awaitRoll',
     dice: [0, 0],
@@ -422,10 +427,12 @@ function normalizeState(raw) {
     chance: Array.isArray(raw.decks && raw.decks.chance) ? raw.decks.chance.filter((id) => CARD_DEFS.some((c) => c.id === id)) : []
   };
 
+  const maxRounds = clamp(Math.round(Number(raw.maxRounds) || MAX_ROUNDS), 5, 99);
   const logs = Array.isArray(raw.log) ? raw.log.slice(-200).map((e) => ({
     t: Number(e.t) || Date.now(),
     text: String(e.text || ''),
-    kind: ['good', 'bad', 'warn', 'special', 'info'].includes(e.kind) ? e.kind : 'info'
+    kind: ['good', 'bad', 'warn', 'special', 'info'].includes(e.kind) ? e.kind : 'info',
+    round: clamp(Number(e.round) || Number(raw.round) || 1, 1, maxRounds + 1)
   })) : [];
 
   const playersCount = players.length;
@@ -440,7 +447,8 @@ function normalizeState(raw) {
     tiles,
     decks,
     current,
-    round: clamp(Math.round(Number(raw.round) || 1), 1, MAX_ROUNDS + 1),
+    round: clamp(Math.round(Number(raw.round) || 1), 1, maxRounds + 1),
+    maxRounds,
     turn: Math.max(0, Math.round(Number(raw.turn) || 0)),
     phase,
     dice: Array.isArray(raw.dice) && raw.dice.length === 2 ? raw.dice.map((n) => clamp(Math.round(Number(n) || 0), 0, 6)) : [0, 0],
@@ -539,15 +547,18 @@ function collectGo(player) {
 
 /* ═══════════════ 7 · TURN ENGINE ═══════════════ */
 
-function startGame(configs) {
+function startGame(configs, maxRounds = settings.maxRounds || MAX_ROUNDS) {
   clearTimeout(ui.endTimer);
+  clearTimeout(ui.autoRollTimer);
+  ui.autoRollTimer = null;
+  ui.endTimerKind = null;
   clearInterval(ui.diceTicker);
   ui.diceTicker = null;
   stopDiceVisuals();
   ui.epoch += 1;
   ui.pendingCard = null;
   ui.anim = null;
-  state = createState(configs);
+  state = createState(configs, maxRounds);
   closeAllModals();
   addLog(`🏁 Match started — ${state.players.length} tycoons, ${fmt(START_CASH)} each. First to ${fmt(TARGET_NET_WORTH)} net worth wins.`, 'special');
   addLog(`Round 1 · ${state.players[0].name}'s turn.`, 'info');
@@ -556,6 +567,22 @@ function startGame(configs) {
   saveSettings();
   Sound.start();
   beginTurn();
+}
+
+function scheduleAutoRoll(epoch, delay) {
+  clearTimeout(ui.autoRollTimer);
+  ui.autoRollTimer = setTimeout(() => {
+    ui.autoRollTimer = null;
+    if (epoch !== ui.epoch || !state || state.phase !== 'awaitRoll') return;
+    const player = currentPlayer();
+    if (!player || player.bankrupt) return;
+    if (!player.isAI && !settings.autoAdvance) return;
+    if (document.querySelector('.modal-overlay.show')) {
+      scheduleAutoRoll(epoch, 400);
+      return;
+    }
+    rollDiceForCurrent();
+  }, Math.max(80, delay));
 }
 
 function beginTurn() {
@@ -581,11 +608,8 @@ function beginTurn() {
   state.phase = 'awaitRoll';
   updateUI();
 
-  if (player.isAI) {
-    setTimeout(() => {
-      if (epoch !== ui.epoch || !state || state.phase !== 'awaitRoll') return;
-      rollDiceForCurrent();
-    }, paced(1000));
+  if (player.isAI || settings.autoAdvance) {
+    scheduleAutoRoll(epoch, paced(1000));
   }
 }
 
@@ -599,12 +623,8 @@ function payLockoutFee(player) {
   Sound.coin();
   state.phase = 'awaitRoll';
   updateUI();
-  if (player.isAI) {
-    const epoch = ui.epoch;
-    setTimeout(() => {
-      if (epoch !== ui.epoch || !state || state.phase !== 'awaitRoll') return;
-      rollDiceForCurrent();
-    }, paced(750));
+  if (player.isAI || settings.autoAdvance) {
+    scheduleAutoRoll(ui.epoch, player.isAI ? paced(750) : 300);
   }
 }
 
@@ -618,6 +638,8 @@ function skipLockedTurn(player) {
 
 async function rollDiceForCurrent() {
   if (!state || state.phase !== 'awaitRoll') return;
+  clearTimeout(ui.autoRollTimer);
+  ui.autoRollTimer = null;
   const epoch = ui.epoch;
   const player = currentPlayer();
   if (!player) return;
@@ -631,7 +653,7 @@ async function rollDiceForCurrent() {
 
   state.dice = [d1, d2];
   const total = d1 + d2;
-  addLog(`${player.name} rolled ${d1} + ${d2} = ${total}.`, 'info');
+  addLog(`${player.name} rolled a total of ${total}.`, 'info');
   state.phase = 'moving';
   updateUI();
 
@@ -661,8 +683,8 @@ function animatePawnStep(player, fromPos, toPos) {
   return new Promise((resolve) => {
     const from = tileCenter(fromPos);
     const to = tileCenter(toPos);
-    const dur = Math.max(65, Math.round(200 / (settings.speed || 1)));
-    ui.anim = { playerId: player.id, from, to, start: performance.now(), dur };
+    const dur = Math.max(60, Math.round(settings.stepMs || 200));
+    ui.anim = { playerId: player.id, from, to, fromPos, toPos, start: performance.now(), dur };
     setTimeout(() => {
       ui.anim = null;
       resolve();
@@ -716,12 +738,12 @@ function resolveTile(player) {
 
 function resolveAsset(player, tile) {
   if (tile.ownerId === null) {
-    if (player.cash < tile.price) {
-      addLog(`${player.name} cannot afford ${tile.name} (${fmt(tile.price)}).`, 'warn');
-      endTurnSoon(850);
-      return;
-    }
     if (player.isAI) {
+      if (player.cash < tile.price) {
+        addLog(`${player.name} cannot afford ${tile.name}: price ${fmt(tile.price)}, cash ${fmt(player.cash)}.`, 'warn');
+        endTurnSoon(850);
+        return;
+      }
       if (player.cash - tile.price > 20000) {
         buyAsset(player, tile);
         endTurnSoon(900);
@@ -734,6 +756,15 @@ function resolveAsset(player, tile) {
     state.phase = 'decision';
     state.pendingBuy = tile.id;
     updateUI();
+    if (player.cash < tile.price) {
+      const shortfall = tile.price - player.cash;
+      const assets = ownedTiles(player).length;
+      const worthNote = assets > 0
+        ? `Net worth ${fmt(netWorth(player))} includes ${assets} asset${assets === 1 ? '' : 's'} and cannot be spent on a purchase.`
+        : `Net worth is ${fmt(netWorth(player))} in cash.`;
+      addLog(`${player.name} cannot afford ${tile.name}: price ${fmt(tile.price)}, liquid cash ${fmt(player.cash)} — short ${fmt(shortfall)}. ${worthNote}`, 'warn');
+      toast(`Need ${fmt(shortfall)} more cash — only liquid cash can buy assets.`, 'warn');
+    }
     return;
   }
 
@@ -812,7 +843,7 @@ function resolveLockout(player) {
   const from = tileCenter(fromPos);
   const to = tileCenter(6);
   const dur = Math.max(260, Math.round(560 / (settings.speed || 1)));
-  ui.anim = { playerId: player.id, from, to, start: performance.now(), dur };
+  ui.anim = { playerId: player.id, from, to, fromPos, toPos: 6, start: performance.now(), dur };
   updateUI();
   setTimeout(() => {
     ui.anim = null;
@@ -929,8 +960,10 @@ function endTurnSoon(delay = 800) {
 
   if (manualPause) {
     const reviewDelay = Math.max(120, Math.min(900, paced(delay)));
+    ui.endTimerKind = 'review';
     ui.endTimer = setTimeout(() => {
       if (epoch !== ui.epoch || !state || state.phase === 'ended') return;
+      ui.endTimerKind = null;
       state.phase = 'review';
       updateUI();
       saveLocal();
@@ -938,8 +971,10 @@ function endTurnSoon(delay = 800) {
     return;
   }
 
+  ui.endTimerKind = 'finish';
   ui.endTimer = setTimeout(() => {
     if (epoch !== ui.epoch || !state || state.phase === 'ended') return;
+    ui.endTimerKind = null;
     finishTurn();
   }, paced(delay));
 }
@@ -953,6 +988,7 @@ function continueTurn() {
 function finishTurn() {
   if (!state || state.phase === 'ended') return;
   clearTimeout(ui.endTimer);
+  ui.endTimerKind = null;
 
   const achievers = activePlayers().filter((p) => netWorth(p) >= TARGET_NET_WORTH);
   if (achievers.length) {
@@ -980,7 +1016,7 @@ function finishTurn() {
   if (next <= previous) state.round += 1;
   state.current = next;
 
-  if (state.round > MAX_ROUNDS) {
+  if (state.round > state.maxRounds) {
     endGameByNetWorth();
     return;
   }
@@ -1001,10 +1037,10 @@ function endGameByNetWorth() {
     return a.id - b.id;
   });
   if (!ranked.length) {
-    endGame(null, 'Thirty rounds passed with no solvent tycoons.');
+    endGame(null, `${state.maxRounds} rounds passed with no solvent tycoons.`);
     return;
   }
-  endGame(ranked[0].id, `Thirty rounds complete — ${ranked[0].name} takes the crown with ${fmt(netWorth(ranked[0]))} in net worth.`);
+  endGame(ranked[0].id, `${state.maxRounds} rounds complete — ${ranked[0].name} takes the crown with ${fmt(netWorth(ranked[0]))} in net worth.`);
 }
 
 function endGame(winnerId, reason) {
@@ -1069,6 +1105,9 @@ function loadState(raw, sourceLabel) {
   if (!normalized) { toast('Invalid match file', 'bad'); return; }
 
   clearTimeout(ui.endTimer);
+  clearTimeout(ui.autoRollTimer);
+  ui.autoRollTimer = null;
+  ui.endTimerKind = null;
   clearInterval(ui.diceTicker);
   ui.diceTicker = null;
   stopDiceVisuals();
@@ -1094,6 +1133,11 @@ function loadState(raw, sourceLabel) {
     updateUI();
     saveLocal();
     toast('Review restored — continue when ready', 'good');
+    if (settings.autoAdvance) {
+      setTimeout(() => {
+        if (state && state.phase === 'review') finishTurn();
+      }, 350);
+    }
     return;
   }
 
@@ -1163,6 +1207,8 @@ function saveSettings() {
       speed: settings.speed,
       autoAdvance: settings.autoAdvance,
       fontScale: settings.fontScale,
+      stepMs: settings.stepMs,
+      maxRounds: settings.maxRounds,
       lobby: lobbyConfig.map((c) => ({ ...c }))
     }));
   } catch (_) { /* ignore */ }
@@ -1178,6 +1224,12 @@ function loadSettings() {
     if (SPEED_LEVELS.includes(parsed.speed)) settings.speed = parsed.speed;
     if (typeof parsed.autoAdvance === 'boolean') settings.autoAdvance = parsed.autoAdvance;
     if (FONT_LEVELS.includes(parsed.fontScale)) settings.fontScale = parsed.fontScale;
+    if (typeof parsed.maxRounds === 'number') settings.maxRounds = clamp(Math.round(parsed.maxRounds), 5, 99);
+    if (typeof parsed.stepMs === 'number') {
+      settings.stepMs = clamp(Math.round(parsed.stepMs / 20) * 20, 80, 1200);
+    } else if (typeof parsed.speed === 'number') {
+      settings.stepMs = clamp(Math.round(200 / parsed.speed), 80, 1200);
+    }
     if (Array.isArray(parsed.lobby) && parsed.lobby.length === 4) {
       parsed.lobby.forEach((cfg, i) => {
         if (!cfg) return;
@@ -1256,6 +1308,28 @@ function buildLobby() {
     });
   });
 
+  const roundsInput = $('#roundsInput');
+  const applyRounds = (value) => {
+    settings.maxRounds = clamp(Math.round(Number(value) || MAX_ROUNDS), 5, 99);
+    if (roundsInput) roundsInput.value = String(settings.maxRounds);
+    saveSettings();
+  };
+  if (roundsInput) {
+    roundsInput.addEventListener('input', () => {
+      settings.maxRounds = clamp(Math.round(Number(roundsInput.value) || MAX_ROUNDS), 5, 99);
+      saveSettings();
+    });
+    roundsInput.addEventListener('change', () => applyRounds(roundsInput.value));
+  }
+  $('#roundsDown') && $('#roundsDown').addEventListener('click', () => {
+    applyRounds(settings.maxRounds - 5);
+    Sound.click();
+  });
+  $('#roundsUp') && $('#roundsUp').addEventListener('click', () => {
+    applyRounds(settings.maxRounds + 5);
+    Sound.click();
+  });
+
   syncLobby();
 }
 
@@ -1304,6 +1378,8 @@ function syncLobby() {
       btn.classList.toggle('active', btn.dataset.type === cfg.type);
     });
   });
+  const roundsInput = $('#roundsInput');
+  if (roundsInput && document.activeElement !== roundsInput) roundsInput.value = String(settings.maxRounds);
   refreshSaveHint();
 }
 
@@ -1323,6 +1399,38 @@ function updateSoundButton() {
   btn.title = settings.sound ? 'Mute sound' : 'Enable sound';
 }
 
+function isFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function updateFullscreenButton() {
+  const btn = $('#fullscreenBtn');
+  if (!btn) return;
+  const active = isFullscreen();
+  btn.textContent = active ? '⤡' : '⤢';
+  btn.setAttribute('aria-pressed', String(active));
+  btn.title = active ? 'Exit fullscreen (F)' : 'Fullscreen (F)';
+  btn.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen');
+}
+
+async function toggleFullscreen() {
+  try {
+    if (isFullscreen()) {
+      if (document.exitFullscreen) await document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    } else {
+      const el = document.documentElement;
+      if (el.requestFullscreen) await el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      else { toast('Fullscreen is not supported in this browser', 'warn'); return; }
+    }
+  } catch (_) {
+    toast('Fullscreen was blocked by the browser', 'warn');
+  }
+  updateFullscreenButton();
+  setTimeout(() => { try { resizeBoard(); } catch (_) { /* ignore */ } }, 150);
+}
+
 /* ───────────── Speed, turn pacing & text size ───────────── */
 
 const FONT_LEVELS = [1, 1.1, 1.25, 1.4];
@@ -1338,6 +1446,17 @@ function updateFontLabels() {
   const b = $('#fontLabel2');
   if (a) a.textContent = label;
   if (b) b.textContent = label;
+}
+
+function updateStepUI() {
+  const range = $('#stepRange');
+  const out = $('#stepValue');
+  if (range) {
+    range.value = String(settings.stepMs);
+    const fill = ((settings.stepMs - 80) / (1200 - 80)) * 100;
+    range.style.setProperty('--fill', `${clamp(fill, 0, 100).toFixed(1)}%`);
+  }
+  if (out) out.textContent = `${settings.stepMs} ms`;
 }
 
 function applyFontScale() {
@@ -1382,15 +1501,62 @@ function setSpeed(value) {
   applyPaceUI();
   saveSettings();
   Sound.click();
-  toast(`Movement speed ${speed}×`, 'info');
+  toast(`Table speed ${speed}×`, 'info');
 }
 
 function setTurnMode(mode) {
+  const wasAuto = settings.autoAdvance;
   settings.autoAdvance = mode === 'auto';
   applyPaceUI();
   saveSettings();
   Sound.click();
-  toast(settings.autoAdvance ? 'Turn flow: Auto' : 'Turn flow: Manual — Continue after your turn', 'info');
+  toast(settings.autoAdvance
+    ? 'Turn flow: Auto — the dice roll for you'
+    : 'Turn flow: Manual — roll and continue yourself', 'info');
+
+  if (!state || state.phase === 'ended') return;
+  const player = currentPlayer();
+
+  if (settings.autoAdvance && !wasAuto) {
+    // Switching to Auto mid-review should resume immediately.
+    if (state.phase === 'review') {
+      closeModal('settingsModal');
+      setTimeout(() => {
+        if (state && state.phase === 'review') finishTurn();
+      }, 180);
+    } else if (state.phase === 'awaitRoll' && player && !player.isAI) {
+      closeModal('settingsModal');
+      scheduleAutoRoll(ui.epoch, 250);
+    } else if (state.phase === 'resolving' && ui.endTimerKind === 'review') {
+      clearTimeout(ui.endTimer);
+      ui.endTimer = null;
+      ui.endTimerKind = null;
+      closeModal('settingsModal');
+      setTimeout(() => {
+        if (state && state.phase === 'resolving') finishTurn();
+      }, 180);
+    } else {
+      updateUI();
+    }
+  } else if (!settings.autoAdvance) {
+    // Switching back to Manual cancels a pending human auto-roll.
+    if (player && !player.isAI) {
+      clearTimeout(ui.autoRollTimer);
+      ui.autoRollTimer = null;
+    }
+    if (state.phase === 'resolving' && ui.endTimerKind === 'finish' && player && !player.isAI) {
+      clearTimeout(ui.endTimer);
+      ui.endTimer = null;
+      ui.endTimerKind = null;
+      state.phase = 'review';
+      updateUI();
+      saveLocal();
+    } else {
+      updateUI();
+    }
+  } else {
+    updateUI();
+  }
 }
 
 function openSettings() {
@@ -1400,6 +1566,7 @@ function openSettings() {
   }
   applyPaceUI();
   updateFontLabels();
+  updateStepUI();
   openModal('settingsModal');
   Sound.click();
 }
@@ -1423,7 +1590,7 @@ function updateUI() {
   [rollBtn, buyBtn, passBtn, lockoutPayBtn, lockoutSkipBtn, continueTurnBtn, againBtn].forEach((b) => { if (b) b.hidden = true; });
 
   if (!state) {
-    if (roundLabel) roundLabel.textContent = '— / 30';
+    if (roundLabel) roundLabel.textContent = `— / ${settings.maxRounds}`;
     if (turnLabel) turnLabel.textContent = '—';
     if (dockName) dockName.textContent = 'Waiting for players';
     if (dockHint) dockHint.textContent = 'Configure your tycoons and start a match.';
@@ -1441,10 +1608,10 @@ function updateUI() {
   const isHuman = !!player && !player.isAI && !player.bankrupt;
 
   if (canvas) {
-    canvas.setAttribute('aria-label', `Millionaire Race game board. Round ${Math.min(state.round, MAX_ROUNDS)} of ${MAX_ROUNDS}. ${player ? player.name + ' to play.' : ''} Net worth target one million dollars.`);
+    canvas.setAttribute('aria-label', `Millionaire Race game board. Round ${Math.min(state.round, state.maxRounds)} of ${state.maxRounds}. ${player ? player.name + ' to play.' : ''} Net worth target one million dollars.`);
   }
 
-  if (roundLabel) roundLabel.textContent = `${Math.min(state.round, MAX_ROUNDS)} / ${MAX_ROUNDS}`;
+  if (roundLabel) roundLabel.textContent = `${Math.min(state.round, state.maxRounds)} / ${state.maxRounds}`;
   if (turnLabel) turnLabel.textContent = `${state.current + 1} / ${state.players.length}`;
 
   if (dockName) dockName.textContent = player ? player.name : '—';
@@ -1460,8 +1627,12 @@ function updateUI() {
     if (againBtn) againBtn.hidden = false;
   } else if (state.phase === 'awaitRoll') {
     if (isHuman) {
-      hint = player.lockout ? 'Audit lockout — decide whether to pay the exit fee.' : 'Your move — roll the dice.';
-      if (rollBtn) rollBtn.hidden = false;
+      if (settings.autoAdvance) {
+        hint = 'Auto mode — rolling the dice for you…';
+      } else {
+        hint = player.lockout ? 'Audit lockout — decide whether to pay the exit fee.' : 'Your move — roll the dice.';
+        if (rollBtn) rollBtn.hidden = false;
+      }
     } else {
       hint = `${player.name} is strategizing…`;
     }
@@ -1472,13 +1643,24 @@ function updateUI() {
   } else if (state.phase === 'decision') {
     const tile = state.pendingBuy != null ? state.tiles[state.pendingBuy] : null;
     if (tile && isHuman) {
-      hint = `Buy ${tile.name} for ${fmt(tile.price)}? Cash after purchase: ${fmt(player.cash - tile.price)}.`;
+      const shortfall = Math.max(0, tile.price - player.cash);
+      if (shortfall > 0) {
+        hint = `Can't buy — need ${fmt(shortfall)} more cash. Cash ${fmt(player.cash)} / price ${fmt(tile.price)}. Only liquid cash can buy assets.`;
+      } else {
+        hint = `Buy ${tile.name} for ${fmt(tile.price)}? Cash after purchase: ${fmt(player.cash - tile.price)}.`;
+      }
       if (buyBtn) {
         buyBtn.hidden = false;
         buyBtn.textContent = `Buy · ${fmt(tile.price)}`;
-        buyBtn.disabled = player.cash < tile.price;
+        buyBtn.disabled = shortfall > 0;
+        buyBtn.title = shortfall > 0
+          ? `Need ${fmt(shortfall)} more cash — only cash can buy assets`
+          : `Buy for ${fmt(tile.price)}`;
       }
-      if (passBtn) passBtn.hidden = false;
+      if (passBtn) {
+        passBtn.hidden = false;
+        passBtn.textContent = shortfall > 0 ? 'Pass (cash short)' : 'Pass';
+      }
     } else {
       hint = 'Settling the purchase…';
     }
@@ -1551,12 +1733,21 @@ function renderLeaderboard() {
 
 function renderLog() {
   const wrap = $('#log');
+  const roundEl = $('#ledgerRound');
+  const displayRound = state ? (state.phase === 'ended' ? Math.min(state.round, state.maxRounds) : state.round) : 1;
+  if (roundEl) roundEl.textContent = `R${displayRound}`;
   if (!wrap) return;
-  if (!state || !state.log.length) {
+  if (!state) {
     wrap.innerHTML = '<p class="empty-note">The financial chronicle begins…</p>';
     return;
   }
-  const entries = state.log.slice(-80);
+  const entries = state.log
+    .filter((e) => (typeof e.round === 'number' ? e.round : displayRound) === displayRound)
+    .slice(-80);
+  if (!entries.length) {
+    wrap.innerHTML = '<p class="empty-note">No entries in this round yet.</p>';
+    return;
+  }
   wrap.innerHTML = entries.map((e) => `
     <div class="log-entry ${e.kind || 'info'}"><span class="t">${timeLabel(e.t)}</span>${escapeHtml(e.text)}</div>
   `).join('');
@@ -1789,7 +1980,12 @@ function drawBoard(now) {
 
   drawCenter(now);
 
-  for (let i = 0; i < TILE_COUNT; i++) drawTile(i, now);
+  const raised = [];
+  for (let i = 0; i < TILE_COUNT; i++) {
+    if (tileLift(i) > 0) raised.push(i);
+    else drawTile(i, now);
+  }
+  raised.forEach((i) => drawTile(i, now));
   drawPawns(now);
 }
 
@@ -1973,7 +2169,7 @@ function drawCenter(now) {
     ctx.fillText('Configure your players', cx, cardY + 62);
     setFont(9, 500);
     ctx.fillStyle = '#5e6d84';
-    ctx.fillText('2–4 tycoons · humans vs AI rivals · 30 rounds', cx, cardY + 82);
+    ctx.fillText(`2–4 tycoons · humans vs AI rivals · ${settings.maxRounds} rounds`, cx, cardY + 82);
   }
 
   // dice
@@ -1986,18 +2182,9 @@ function drawCenter(now) {
   ctx.fillText(hasRoll ? 'LAST ROLL' : 'DICE', cx, diceY - 16);
   setLetterSpacing(0);
 
-  const chip = 42;
-  const gap = 10;
-  const totalChip = 54;
-  const totalWidth = chip * 2 + gap * 2 + totalChip;
-  let dx = cx - totalWidth / 2;
-  const d1 = hasRoll ? state.dice[0] : '–';
-  const d2 = hasRoll ? state.dice[1] : '–';
-  drawDieChip(dx, diceY, chip, d1, false);
-  dx += chip + gap;
-  drawDieChip(dx, diceY, chip, d2, false);
-  dx += chip + gap;
-  drawDieChip(dx, diceY, totalChip, hasRoll ? state.dice[0] + state.dice[1] : '–', true);
+  const totalChip = 58;
+  const total = hasRoll ? state.dice[0] + state.dice[1] : '–';
+  drawDieChip(cx - totalChip / 2, diceY, totalChip, total, true);
 
   // progress
   const barX = inner.x + 78;
@@ -2037,7 +2224,8 @@ function drawCenter(now) {
   setLetterSpacing(3);
   ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(140,158,182,0.5)';
-  ctx.fillText('24 TILES · 30 ROUNDS · ONE MILLION', cx, inner.y + inner.h - 20);
+  const maxRounds = state ? state.maxRounds : settings.maxRounds;
+  ctx.fillText(`24 TILES · ${maxRounds} ROUNDS · ONE MILLION`, cx, inner.y + inner.h - 20);
   setLetterSpacing(0);
 }
 
@@ -2115,23 +2303,25 @@ function drawTile(index, now) {
   const tile = state ? state.tiles[index] : { ...TILE_DEFS[index], ownerId: null, mortgaged: false };
   const theme = tileTheme(tile);
   const { x, y, w, h } = tileRect(index, 3);
+  const lift = tileLift(index);
+  const ty = y - lift;
   const owner = state && tile.ownerId != null ? state.players[tile.ownerId] : null;
   const ownerColor = owner ? PLAYER_COLORS[owner.color] : null;
   const cx = x + w / 2;
 
-  // extruded drop face
+  // extruded drop face — a taller side when a player is standing here
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.55)';
-  ctx.shadowBlur = 16;
-  ctx.shadowOffsetY = 8;
-  roundRectPath(x + 1, y + EXTRUDE, w - 2, h - 2, 9);
-  ctx.fillStyle = theme.edge;
+  ctx.shadowColor = lift ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.55)';
+  ctx.shadowBlur = lift ? 26 : 16;
+  ctx.shadowOffsetY = lift ? 14 : 8;
+  roundRectPath(x + 1, ty + EXTRUDE, w - 2, h - 2 + lift, 9);
+  ctx.fillStyle = lift ? shade(theme.edge, -10) : theme.edge;
   ctx.fill();
   ctx.restore();
 
   // top face
-  roundRectPath(x, y, w, h, 9);
-  const face = ctx.createLinearGradient(x, y, x, y + h);
+  roundRectPath(x, ty, w, h, 9);
+  const face = ctx.createLinearGradient(x, ty, x, ty + h);
   face.addColorStop(0, theme.topLight);
   face.addColorStop(1, theme.top);
   ctx.fillStyle = face;
@@ -2143,7 +2333,7 @@ function drawTile(index, now) {
 
   if (owner) {
     ctx.save();
-    roundRectPath(x, y, w, h, 9);
+    roundRectPath(x, ty, w, h, 9);
     ctx.strokeStyle = ownerColor.hex;
     ctx.globalAlpha = 0.6;
     ctx.lineWidth = 1.5;
@@ -2153,46 +2343,61 @@ function drawTile(index, now) {
     ctx.restore();
   }
 
+  // occupant rim: the raised tile glows in the player's colour
+  if (lift) {
+    const occupants = playersOnTile(index);
+    const rim = occupants.length === 1 ? PLAYER_COLORS[occupants[0].color].hex : '#f2c53d';
+    ctx.save();
+    roundRectPath(x, ty, w, h, 9);
+    ctx.strokeStyle = rim;
+    ctx.globalAlpha = 0.8;
+    ctx.lineWidth = 1.7;
+    ctx.shadowColor = rim;
+    ctx.shadowBlur = 16;
+    ctx.stroke();
+    ctx.restore();
+  }
+
   ctx.save();
-  roundRectPath(x, y, w, h, 9);
+  roundRectPath(x, ty, w, h, 9);
   ctx.clip();
 
   // accent bar
-  const accent = ctx.createLinearGradient(x, y, x + w, y);
+  const accent = ctx.createLinearGradient(x, ty, x + w, ty);
   accent.addColorStop(0, theme.accent);
   accent.addColorStop(0.7, hexToRgba(theme.accent, 0.35));
   accent.addColorStop(1, 'rgba(255,255,255,0.05)');
   ctx.fillStyle = accent;
   ctx.globalAlpha = 0.9;
-  ctx.fillRect(x, y, w, 3);
+  ctx.fillRect(x, ty, w, 3);
   ctx.globalAlpha = 1;
 
   // top-left highlight
-  const glint = ctx.createRadialGradient(x + 18, y + 16, 2, x + 18, y + 16, 70);
+  const glint = ctx.createRadialGradient(x + 18, ty + 16, 2, x + 18, ty + 16, 70);
   glint.addColorStop(0, 'rgba(255,255,255,0.06)');
   glint.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = glint;
-  ctx.fillRect(x, y, w, h);
+  ctx.fillRect(x, ty, w, h);
 
   const tier = assetTier(tile);
   const isOwnedAsset = tile.type === 'asset' && owner;
 
   // emblem / building
   if (isOwnedAsset) {
-    drawIsoTower(cx, y + 68, 26 + tier * 3, 10 + tier * 4.5, ownerColor.hex);
+    drawIsoTower(cx, ty + 68, 26 + tier * 3, 10 + tier * 4.5, ownerColor.hex);
   } else {
     ctx.save();
     setFont(25, 400, 'emoji');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.globalAlpha = 0.96;
-    ctx.fillText(tile.icon, cx, y + 37);
+    ctx.fillText(tile.icon, cx, ty + 37);
     ctx.restore();
   }
 
   // name
   const fontBoost = 1 + (settings.fontScale - 1) * 0.55;
-  const nameY = isOwnedAsset ? y + 80 : y + 57;
+  const nameY = isOwnedAsset ? ty + 80 : ty + 57;
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.45)';
   ctx.shadowBlur = 3;
@@ -2210,7 +2415,7 @@ function drawTile(index, now) {
   ctx.restore();
 
   // price / rent / note
-  const bottomY = y + h - 14;
+  const bottomY = ty + h - 14;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   if (tile.type === 'asset') {
@@ -2229,40 +2434,64 @@ function drawTile(index, now) {
 
   // owner flag + tier stars
   if (owner) {
-    drawFlag(x + w - 11, y + 10, ownerColor.hex);
+    drawFlag(x + w - 11, ty + 10, ownerColor.hex);
     setFont(7.5, 700);
     ctx.textAlign = 'right';
     ctx.fillStyle = ownerColor.hex;
     ctx.globalAlpha = 0.9;
-    ctx.fillText('★'.repeat(tier), x + w - 7, y + 36);
+    ctx.fillText('★'.repeat(tier), x + w - 7, ty + 36);
     ctx.globalAlpha = 1;
     // owner band
     ctx.fillStyle = ownerColor.hex;
-    ctx.fillRect(x, y + h - 3, w, 3);
+    ctx.fillRect(x, ty + h - 3, w, 3);
   }
 
   // mortgage treatment
   if (owner && tile.mortgaged) {
     ctx.save();
-    roundRectPath(x, y, w, h, 9);
+    roundRectPath(x, ty, w, h, 9);
     ctx.clip();
     ctx.globalAlpha = 0.13;
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1.4;
     for (let d = -h; d < w; d += 10) {
       ctx.beginPath();
-      ctx.moveTo(x + d, y);
-      ctx.lineTo(x + d + h, y + h);
+      ctx.moveTo(x + d, ty);
+      ctx.lineTo(x + d + h, ty + h);
       ctx.stroke();
     }
     ctx.restore();
     setFont(9, 400, 'emoji');
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText('🔒', x + 7, y + 7);
+    ctx.fillText('🔒', x + 7, ty + 7);
   }
 
   ctx.restore();
+
+  // occupant badges on raised tiles — quick "who is here" markers
+  if (lift) {
+    const occupants = playersOnTile(index);
+    occupants.forEach((p, i) => {
+      const bx = x + 15 + i * 17;
+      const by = ty + 15;
+      const pc = PLAYER_COLORS[p.color];
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(bx, by, 7, 0, TAU);
+      ctx.fillStyle = pc.hex;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      ctx.fillStyle = p.color === 'yellow' ? '#2a1e02' : '#ffffff';
+      ctx.font = '700 8px "Outfit", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(p.name.trim().charAt(0).toUpperCase(), bx, by + 0.5);
+      ctx.restore();
+    });
+  }
 
   // current-tile pulse ring
   if (state && state.phase !== 'ended' && playerAtTile(index)) {
@@ -2271,7 +2500,7 @@ function drawTile(index, now) {
       const pc = PLAYER_COLORS[active.color];
       const pulse = 0.5 + 0.5 * Math.sin(now / 380);
       ctx.save();
-      roundRectPath(x - 1.5, y - 1.5, w + 3, h + 3, 11);
+      roundRectPath(x - 1.5, ty - 1.5, w + 3, h + 3, 11);
       ctx.strokeStyle = pc.hex;
       ctx.globalAlpha = 0.35 + pulse * 0.4;
       ctx.lineWidth = 2;
@@ -2285,7 +2514,7 @@ function drawTile(index, now) {
   // hover outline for tile inspection
   if (state && ui.hoverTile === index && canInspectBoard()) {
     ctx.save();
-    roundRectPath(x - 1, y - 1, w + 2, h + 2, 10);
+    roundRectPath(x - 1, ty - 1, w + 2, h + 2, 10);
     ctx.strokeStyle = 'rgba(255,255,255,0.42)';
     ctx.lineWidth = 1.4;
     ctx.stroke();
@@ -2296,6 +2525,20 @@ function drawTile(index, now) {
 function playerAtTile(index) {
   if (!state) return false;
   return state.players.some((p) => !p.bankrupt && p.position === index);
+}
+
+const TILE_LIFT = 12;
+
+function playersOnTile(index) {
+  if (!state) return [];
+  return state.players.filter((p) => !p.bankrupt && p.position === index);
+}
+
+function tileLift(index) {
+  if (!state) return 0;
+  if (state.players.some((p) => !p.bankrupt && p.position === index)) return TILE_LIFT;
+  if (ui.anim && ui.anim.toPos === index) return TILE_LIFT;
+  return 0;
 }
 
 function drawFlag(x, y, color) {
@@ -2407,7 +2650,7 @@ function drawPawns(now) {
   groups.forEach((players, pos) => {
     const { x, y, w, h } = tileRect(pos, 3);
     const cx = x + w / 2;
-    const baseY = y + h - 26;
+    const baseY = y + h - 26 - tileLift(pos);
     const offsets = players.length === 1
       ? [[0, 0]]
       : players.length === 2
@@ -2427,7 +2670,10 @@ function drawPawns(now) {
     const t = clamp((now - ui.anim.start) / ui.anim.dur, 0, 1);
     const e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     const px = lerp(ui.anim.from.x, ui.anim.to.x, e);
-    const py = lerp(ui.anim.from.y, ui.anim.to.y, e) + 38;
+    const fromLift = ui.anim.fromPos != null ? tileLift(ui.anim.fromPos) : 0;
+    const toLift = ui.anim.toPos != null ? tileLift(ui.anim.toPos) : 0;
+    const lift = lerp(fromLift, toLift, e);
+    const py = lerp(ui.anim.from.y, ui.anim.to.y, e) + 38 - lift;
     const hop = Math.sin(Math.PI * t) * 13;
     drawPawn(px, py - hop, PLAYER_COLORS[player.color], player.name, 0.72 + Math.sin(Math.PI * t) * 0.08);
   }
@@ -2542,6 +2788,13 @@ function tileIndexAt(clientX, clientY) {
   if (!rect.width || !rect.height) return -1;
   const x = (clientX - rect.left) * (BOARD_SIZE / rect.width);
   const y = (clientY - rect.top) * (BOARD_SIZE / rect.height);
+  // Raised tiles are drawn above their cell and overlap the tile above.
+  for (let i = 0; i < TILE_COUNT; i++) {
+    const lift = tileLift(i);
+    if (lift <= 0) continue;
+    const r = tileRect(i);
+    if (x >= r.x && x <= r.x + r.w && y >= r.y - lift && y <= r.y + r.h) return i;
+  }
   for (let i = 0; i < TILE_COUNT; i++) {
     const r = tileRect(i);
     if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return i;
@@ -2611,6 +2864,12 @@ function openTileDetails(index) {
         notes.push(viewer.cash >= tile.price
           ? `${poss} cash covers it — ${subj} would have ${fmt(viewer.cash - tile.price)} left.`
           : `${subjCap} would need ${fmt(tile.price - viewer.cash)} more cash.`);
+        if (viewer.cash < tile.price) {
+          const owned = ownedTiles(viewer).length;
+          notes.push(owned > 0
+            ? `${poss} net worth ${fmt(netWorth(viewer))} includes ${owned} asset${owned === 1 ? '' : 's'} and cannot be spent on this purchase.`
+            : 'Only liquid cash can buy assets.');
+        }
       }
     } else if (viewer && owner.id === viewer.id) {
       notes.push(vHuman
@@ -2851,14 +3110,11 @@ function openDiceModal(player) {
 }
 
 function setDiceChips(d1, d2, reveal = false) {
-  const c1 = $('#dieChip1');
-  const c2 = $('#dieChip2');
   const total = $('#dieTotal');
   const caption = $('#diceCaption');
-  if (c1) c1.textContent = d1 ? d1 : '–';
-  if (c2) c2.textContent = d2 ? d2 : '–';
-  if (total) total.textContent = d1 && d2 ? d1 + d2 : '–';
-  if (reveal && caption) caption.textContent = `You rolled ${d1} + ${d2} — move ${d1 + d2} steps.`;
+  const sum = d1 && d2 ? d1 + d2 : 0;
+  if (total) total.textContent = sum ? sum : '–';
+  if (reveal && caption && sum) caption.textContent = `Total ${sum} — move ${sum} steps.`;
   else if (caption) caption.textContent = 'Two dice. Twelve steps. One fortune.';
 }
 
@@ -3368,7 +3624,7 @@ function bindEvents() {
       type: cfg.type
     }));
     if (!configs.length) return;
-    startGame(configs);
+    startGame(configs, settings.maxRounds);
   });
 
   $('#continueBtn') && $('#continueBtn').addEventListener('click', () => {
@@ -3410,6 +3666,18 @@ function bindEvents() {
   $$('#turnModePicker button').forEach((btn) => {
     btn.addEventListener('click', () => setTurnMode(btn.dataset.mode));
   });
+  const stepRange = $('#stepRange');
+  if (stepRange) {
+    stepRange.addEventListener('input', () => {
+      settings.stepMs = clamp(Math.round(Number(stepRange.value) / 20) * 20, 80, 1200);
+      updateStepUI();
+    });
+    stepRange.addEventListener('change', () => {
+      saveSettings();
+      Sound.click();
+      toast(`Pawn step ${settings.stepMs} ms`, 'info');
+    });
+  }
   $('#settingsModal') && $('#settingsModal').addEventListener('click', (e) => {
     if (e.target && e.target.id === 'settingsModal') closeModal('settingsModal');
   });
@@ -3420,6 +3688,18 @@ function bindEvents() {
   $('#tileModal') && $('#tileModal').addEventListener('click', (e) => {
     if (e.target && e.target.id === 'tileModal') closeModal('tileModal');
   });
+
+  $('#fullscreenBtn') && $('#fullscreenBtn').addEventListener('click', () => {
+    Sound.init();
+    Sound.click();
+    toggleFullscreen();
+  });
+  const syncFullscreen = () => {
+    updateFullscreenButton();
+    setTimeout(() => { try { resizeBoard(); } catch (_) { /* ignore */ } }, 150);
+  };
+  document.addEventListener('fullscreenchange', syncFullscreen);
+  document.addEventListener('webkitfullscreenchange', syncFullscreen);
 
   $('#saveBtn') && $('#saveBtn').addEventListener('click', exportSave);
   $('#loadBtn') && $('#loadBtn').addEventListener('click', () => {
@@ -3457,7 +3737,10 @@ function bindEvents() {
     const player = currentPlayer();
     const tile = state.pendingBuy != null ? state.tiles[state.pendingBuy] : null;
     if (!player || !tile) return;
-    if (player.cash < tile.price) { toast('Not enough cash', 'bad'); return; }
+    if (player.cash < tile.price) {
+      toast(`Need ${fmt(tile.price - player.cash)} more cash — only cash can buy assets`, 'bad');
+      return;
+    }
     state.pendingBuy = null;
     buyAsset(player, tile);
     endTurnSoon(700);
@@ -3552,6 +3835,14 @@ function bindEvents() {
         continueTurn();
       }
     }
+
+    if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      const tag = (e.target && e.target.tagName ? e.target.tagName : '').toLowerCase();
+      if (!['input', 'textarea', 'select'].includes(tag)) {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    }
   });
 
   // Unlock audio on first interaction
@@ -3641,8 +3932,10 @@ function init() {
   buildLobby();
   bindEvents();
   updateSoundButton();
+  updateFullscreenButton();
   applyFontScale();
   applyPaceUI();
+  updateStepUI();
   refreshSaveHint();
   resizeBoard();
   updateUI();
